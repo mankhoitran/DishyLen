@@ -6,6 +6,7 @@ import AnalyzingScreen from "@/components/AnalyzingScreen";
 import MenuResultsScreen from "@/components/MenuResultsScreen";
 import MenuItemDetail from "@/components/MenuItemDetail";
 import BottomNav from "@/components/BottomNav";
+import AssistantScreen from "@/components/AssistantScreen";
 
 export type AppScreen = "splash" | "home" | "scan" | "analyzing" | "results" | "detail";
 
@@ -97,6 +98,7 @@ const Index = () => {
   const handleNavTab = (tab: string) => {
     setActiveTab(tab);
     if (tab === "scan") handleScan();
+    else if (tab === "assistant") setScreen("home");
     else if (tab === "home") setScreen("home");
   };
 
@@ -136,6 +138,12 @@ const Index = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showNav && activeTab === "assistant" && (
+        <motion.div key="assistant" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-40">
+          <AssistantScreen />
+        </motion.div>
+      )}
 
       {showNav && <BottomNav activeTab={activeTab} onTabChange={handleNavTab} />}
     </div>
