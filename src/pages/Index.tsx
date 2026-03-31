@@ -98,6 +98,7 @@ const Index = () => {
   const handleNavTab = (tab: string) => {
     setActiveTab(tab);
     if (tab === "scan") handleScan();
+    else if (tab === "assistant") setScreen("home");
     else if (tab === "home") setScreen("home");
   };
 
