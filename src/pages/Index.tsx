@@ -6,6 +6,7 @@ import AnalyzingScreen from "@/components/AnalyzingScreen";
 import MenuResultsScreen from "@/components/MenuResultsScreen";
 import MenuItemDetail from "@/components/MenuItemDetail";
 import BottomNav from "@/components/BottomNav";
+import AssistantScreen from "@/components/AssistantScreen";
 
 export type AppScreen = "splash" | "home" | "scan" | "analyzing" | "results" | "detail";
 
