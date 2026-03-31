@@ -139,6 +139,12 @@ const Index = () => {
         )}
       </AnimatePresence>
 
+      {showNav && activeTab === "assistant" && (
+        <motion.div key="assistant" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-40">
+          <AssistantScreen />
+        </motion.div>
+      )}
+
       {showNav && <BottomNav activeTab={activeTab} onTabChange={handleNavTab} />}
     </div>
   );
