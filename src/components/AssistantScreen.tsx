@@ -169,10 +169,10 @@ const AssistantScreen = () => {
             </p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
-                <button
+                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
-                  className="text-xs bg-card border border-border text-foreground px-3 py-2 rounded-full hover:bg-secondary transition-colors active:scale-95"
+                  className="text-xs bg-primary/10 border border-primary/20 text-foreground px-3 py-2 rounded-full hover:bg-primary/20 transition-colors active:scale-95"
                 >
                   {s}
                 </button>
