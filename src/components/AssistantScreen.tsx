@@ -128,11 +128,11 @@ const AssistantScreen = () => {
               transition={{ duration: 0.25 }}
               className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+               <div
+                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                   msg.sender === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-card text-card-foreground border border-border rounded-bl-md"
+                    ? "bg-primary text-primary-foreground rounded-br-md shadow-primary/20"
+                    : "bg-card text-card-foreground border border-border rounded-bl-md shadow-muted/10"
                 }`}
               >
                 {msg.text}
