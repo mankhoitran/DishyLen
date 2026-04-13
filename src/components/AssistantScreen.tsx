@@ -100,17 +100,17 @@ const AssistantScreen = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-primary/5 via-background to-accent/5">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border px-5 pt-12 pb-4">
+      <div className="sticky top-0 z-10 bg-primary/10 backdrop-blur-md border-b border-primary/20 px-5 pt-12 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-primary shadow-lg shadow-primary/30 flex items-center justify-center">
             <Bot size={20} className="text-primary-foreground" />
           </div>
           <div>
             <h1 className="font-display font-bold text-foreground text-lg">DishyLen AI</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+              <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block animate-pulse-dot" />
               Online — Ready to help
             </p>
           </div>
