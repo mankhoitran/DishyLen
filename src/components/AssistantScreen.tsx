@@ -14,6 +14,8 @@ const SUGGESTIONS = [
   "Any gluten-free options?",
   "Low calorie meals?",
   "High protein dishes?",
+  "What allergens should I watch?",
+  "Best dish for keto diet?",
 ];
 
 const BOT_RESPONSES: Record<string, string> = {
@@ -25,6 +27,20 @@ const BOT_RESPONSES: Record<string, string> = {
     "The **Caesar Salad** at 320 cal is your lightest option. The **Thai Green Curry** at 480 cal is also moderate. I'd recommend the salad if you're counting calories! 🥗",
   "high protein dishes?":
     "The **Grilled Salmon Bowl** leads with 42g protein, followed by **Thai Green Curry** at 32g. Both are excellent choices for muscle recovery! 💪",
+  "what allergens should i watch?":
+    "⚠️ Here's the allergen breakdown:\n• **Salmon Bowl** — Fish, Soy\n• **Risotto** — Dairy, Gluten\n• **Green Curry** — Coconut, Fish sauce\n• **Caesar Salad** — Dairy, Gluten, Eggs\n\nIf you have nut allergies, all four dishes appear safe! Let me know your specific allergy and I'll filter for you.",
+  "best dish for keto diet?":
+    "For keto, the **Grilled Salmon Bowl** is your winner! 🥑 At 28g fats, 42g protein, and only 48g carbs — swap the quinoa for extra avocado and you're under 20g net carbs. The **Caesar Salad** is also great at just 18g carbs.",
+  "is the curry spicy?":
+    "The **Thai Green Curry** has a moderate spice level 🌶️ — it uses green curry paste which is milder than red. The coconut milk base helps cool things down. Ask your server for mild if you're sensitive to heat!",
+  "what's good for a date night?":
+    "For a special dinner, I'd recommend the **Truffle Mushroom Risotto** 🍄✨ — it's rich, indulgent, and the truffle oil adds a luxurious touch. Pair it with the **Caesar Salad** as a starter for a classic combo!",
+  "any vegan options?":
+    "From the current menu, none are fully vegan as-is. However, the **Thai Green Curry** can be made vegan by swapping chicken for tofu and removing fish sauce — ask your server! The **Risotto** contains dairy (butter & parmesan). 🌱",
+  "what should i avoid with diabetes?":
+    "If managing blood sugar, avoid the **Truffle Mushroom Risotto** (72g carbs from arborio rice). The **Caesar Salad** at 18g carbs is your safest bet. The **Salmon Bowl** at 48g carbs is moderate — the quinoa has a low glycemic index. 📊",
+  "compare salmon vs curry":
+    "📊 **Salmon Bowl vs Thai Green Curry:**\n• Calories: 620 vs 480 (curry wins)\n• Protein: 42g vs 32g (salmon wins)\n• Carbs: 48g vs 34g (curry wins)\n• Fats: 28g vs 24g (curry wins)\n\nSalmon is better for protein goals, curry is better for lower calories!",
 };
 
 function getBotResponse(input: string): string {
@@ -84,17 +100,17 @@ const AssistantScreen = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-primary/5 via-background to-accent/5">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border px-5 pt-12 pb-4">
+      <div className="sticky top-0 z-10 bg-primary/10 backdrop-blur-md border-b border-primary/20 px-5 pt-12 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-primary shadow-lg shadow-primary/30 flex items-center justify-center">
             <Bot size={20} className="text-primary-foreground" />
           </div>
           <div>
             <h1 className="font-display font-bold text-foreground text-lg">DishyLen AI</h1>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+              <span className="w-1.5 h-1.5 rounded-full bg-accent inline-block animate-pulse-dot" />
               Online — Ready to help
             </p>
           </div>
@@ -112,11 +128,11 @@ const AssistantScreen = () => {
               transition={{ duration: 0.25 }}
               className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+               <div
+                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                   msg.sender === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-card text-card-foreground border border-border rounded-bl-md"
+                    ? "bg-primary text-primary-foreground rounded-br-md shadow-primary/20"
+                    : "bg-card text-card-foreground border border-border rounded-bl-md shadow-muted/10"
                 }`}
               >
                 {msg.text}
@@ -153,10 +169,10 @@ const AssistantScreen = () => {
             </p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
-                <button
+                 <button
                   key={s}
                   onClick={() => sendMessage(s)}
-                  className="text-xs bg-card border border-border text-foreground px-3 py-2 rounded-full hover:bg-secondary transition-colors active:scale-95"
+                  className="text-xs bg-primary/10 border border-primary/20 text-foreground px-3 py-2 rounded-full hover:bg-primary/20 transition-colors active:scale-95"
                 >
                   {s}
                 </button>
