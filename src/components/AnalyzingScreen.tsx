@@ -20,9 +20,9 @@ const AnalyzingScreen = ({ onDone }: { onDone: () => void }) => {
   return (
     <div className="flex flex-col min-h-screen px-6 pt-6 pb-10">
       <div className="flex items-center justify-between mb-8">
-        <Menu size={22} className="text-foreground" />
-        <h2 className="text-lg font-display font-bold text-foreground">DishyLen</h2>
-        <div className="w-8 h-8 rounded-full bg-primary/10" />
+        <Menu size={22} className="text-foreground" aria-hidden="true" />
+        <p className="text-lg font-display font-bold text-foreground">DishyLen</p>
+        <div className="w-8 h-8 rounded-full bg-primary/10" aria-hidden="true" />
       </div>
 
       {/* Animated icon */}
@@ -38,7 +38,7 @@ const AnalyzingScreen = ({ onDone }: { onDone: () => void }) => {
       </div>
 
       <div className="text-center mb-8 space-y-2">
-        <h2 className="text-3xl font-display font-bold text-foreground">Analyzing Menu…</h2>
+        <h1 className="text-3xl font-display font-bold text-foreground">Analyzing Menu Nutrition</h1>
         <p className="text-muted-foreground text-sm leading-relaxed">
           Our clinical engine is extracting ingredients and cross-referencing nutritional databases.
         </p>

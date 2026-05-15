@@ -193,6 +193,7 @@ const AssistantScreen = () => {
           />
           <button
             type="submit"
+            aria-label="Send message"
             disabled={!input.trim()}
             className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40 active:scale-90 transition-all"
           >

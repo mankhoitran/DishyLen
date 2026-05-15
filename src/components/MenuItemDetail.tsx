@@ -18,10 +18,10 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
   return (
     <div className="flex flex-col min-h-screen px-6 pt-6 pb-24">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={onBack} className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
+        <button onClick={onBack} aria-label="Go back to menu results" className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
           <ArrowLeft size={18} className="text-foreground" />
         </button>
-        <h2 className="text-lg font-display font-bold text-foreground flex-1">Details</h2>
+        <p className="text-lg font-display font-bold text-foreground flex-1">Dish details</p>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -36,7 +36,7 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
 
         {/* Macros */}
         <div className="bg-card rounded-2xl p-5 space-y-4">
-          <h3 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Nutritional Breakdown</h3>
+          <h2 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Nutritional Breakdown</h2>
           {macros.map((m, i) => (
             <div key={m.label} className="space-y-1">
               <div className="flex justify-between text-sm">
@@ -60,7 +60,7 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
           <div className="bg-destructive/10 rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-2">
               <AlertTriangle size={16} className="text-destructive" />
-              <h3 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Allergens</h3>
+              <h2 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Allergens</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {item.allergens.map((a) => (
@@ -72,7 +72,7 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
 
         {/* Ingredients */}
         <div className="bg-card rounded-2xl p-5 space-y-3">
-          <h3 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Ingredients</h3>
+          <h2 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Ingredients</h2>
           <div className="flex flex-wrap gap-2">
             {item.ingredients.map((ing) => (
               <span key={ing} className="px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">{ing}</span>

@@ -12,11 +12,11 @@ const MenuResultsScreen = ({ items, onSelect, onBack }: Props) => {
   return (
     <div className="flex flex-col min-h-screen px-6 pt-6 pb-24">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={onBack} className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
+        <button onClick={onBack} aria-label="Go back to home" className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
           <ArrowLeft size={18} className="text-foreground" />
         </button>
-        <h2 className="text-xl font-display font-bold text-foreground flex-1">Menu Items</h2>
-        <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
+        <h1 className="text-xl font-display font-bold text-foreground flex-1">Scanned Menu Items</h1>
+        <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center" aria-hidden="true">
           <Search size={16} className="text-muted-foreground" />
         </div>
       </div>
@@ -34,7 +34,7 @@ const MenuResultsScreen = ({ items, onSelect, onBack }: Props) => {
             className="w-full text-left bg-card rounded-2xl p-4 space-y-2 active:scale-[0.98] transition-transform"
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-foreground">{item.name}</h3>
+              <h2 className="font-display font-bold text-foreground">{item.name}</h2>
               {item.price && <span className="text-sm font-semibold text-primary">{item.price}</span>}
             </div>
             <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
