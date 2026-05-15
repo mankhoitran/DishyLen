@@ -153,9 +153,9 @@ const Index = () => {
 const HomeScreen = ({ onScan }: { onScan: () => void }) => (
   <div className="flex flex-col min-h-screen px-6 pt-14 pb-24">
     <div className="flex items-center justify-between mb-10">
-      <h1 className="text-2xl font-bold font-display text-foreground">DishyLen</h1>
+      <p className="text-2xl font-bold font-display text-foreground">DishyLen</p>
       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-        <span className="text-primary text-lg">👤</span>
+        <span className="text-primary text-lg" aria-hidden="true">👤</span>
       </div>
     </div>
 
@@ -166,7 +166,7 @@ const HomeScreen = ({ onScan }: { onScan: () => void }) => (
       </div>
 
       <div className="text-center space-y-2">
-        <h2 className="text-3xl font-display font-bold text-foreground">Scan a Menu</h2>
+        <h1 className="text-3xl font-display font-bold text-foreground">DishyLen — Scan a Menu for Nutrition Insights</h1>
         <p className="text-muted-foreground text-sm max-w-[260px]">
           Point your camera at any restaurant menu to get instant nutritional insights
         </p>

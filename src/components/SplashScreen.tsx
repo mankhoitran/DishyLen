@@ -48,7 +48,7 @@ const SplashScreen = ({ onDone }: { onDone: () => void }) => {
             <img
               key={src}
               src={src}
-              alt="Food"
+              alt="Restaurant dish photographed for DishyLen menu scanner"
               className="absolute inset-0 w-full h-full object-cover splash-img-swap"
               style={{ opacity: currentImg === i ? 1 : 0 }}
             />
@@ -63,7 +63,7 @@ const SplashScreen = ({ onDone }: { onDone: () => void }) => {
           className="text-center"
         >
           <h1 className="text-4xl font-display font-bold text-primary-foreground tracking-tight drop-shadow-lg">
-            DishyLen
+            DishyLen — Restaurant Menu Nutrition Scanner
           </h1>
           <p className="text-xs tracking-[0.3em] text-primary-foreground/70 mt-2 uppercase">
             The Culinary Laboratory
