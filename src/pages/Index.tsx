@@ -84,37 +84,37 @@ const variants = {
   splash: {
     initial: { opacity: 0, scale: 1.05 },
     animate: { opacity: 1, scale: 1 },
-    exit:    { opacity: 0, scale: 0.98, transition: { duration: 0.4, ease: "easeIn" } },
+    exit:    { opacity: 0, scale: 0.98 },
   },
   home: {
     initial: { opacity: 0, y: 30, scale: 0.97 },
     animate: { opacity: 1, y: 0,  scale: 1 },
-    exit:    { opacity: 0, y: -20, scale: 0.97, transition: { duration: 0.25 } },
+    exit:    { opacity: 0, y: -20, scale: 0.97 },
   },
   scan: {
     initial: { opacity: 0, scale: 0.92 },
     animate: { opacity: 1, scale: 1 },
-    exit:    { opacity: 0, scale: 1.05, transition: { duration: 0.3 } },
+    exit:    { opacity: 0, scale: 1.05 },
   },
   analyzing: {
     initial: { opacity: 0, y: 60, scale: 0.95 },
     animate: { opacity: 1, y: 0,  scale: 1 },
-    exit:    { opacity: 0, y: -30, scale: 0.98, transition: { duration: 0.3 } },
+    exit:    { opacity: 0, y: -30, scale: 0.98 },
   },
   results: {
     initial: { opacity: 0, x: -40, scale: 0.97 },
     animate: { opacity: 1, x: 0,  scale: 1 },
-    exit:    { opacity: 0, x:  40, scale: 0.97, transition: { duration: 0.25 } },
+    exit:    { opacity: 0, x:  40, scale: 0.97 },
   },
   detail: {
     initial: { opacity: 0, x:  60, scale: 0.97 },
     animate: { opacity: 1, x: 0,  scale: 1 },
-    exit:    { opacity: 0, x: -60, scale: 0.97, transition: { duration: 0.25 } },
+    exit:    { opacity: 0, x: -60, scale: 0.97 },
   },
   assistant: {
     initial: { opacity: 0, y: 40, scale: 0.96 },
     animate: { opacity: 1, y: 0,  scale: 1 },
-    exit:    { opacity: 0, y: 40, scale: 0.96, transition: { duration: 0.25 } },
+    exit:    { opacity: 0, y: 40, scale: 0.96 },
   },
 };
 
