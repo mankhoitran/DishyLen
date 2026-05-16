@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SplashScreen from "@/components/SplashScreen";
 import ScannerScreen from "@/components/ScannerScreen";
@@ -74,78 +74,205 @@ const MOCK_MENU: MenuItem[] = [
   },
 ];
 
+/* ------------------------------------------------------------------ */
+/*  Direction-aware transition presets                                 */
+/* ------------------------------------------------------------------ */
+
+const spring = { type: "spring", stiffness: 280, damping: 28, mass: 0.8 } as const;
+
+const variants = {
+  splash: {
+    initial: { opacity: 0, scale: 1.05 },
+    animate: { opacity: 1, scale: 1 },
+    exit:    { opacity: 0, scale: 0.98, transition: { duration: 0.4, ease: "easeIn" } },
+  },
+  home: {
+    initial: { opacity: 0, y: 30, scale: 0.97 },
+    animate: { opacity: 1, y: 0,  scale: 1 },
+    exit:    { opacity: 0, y: -20, scale: 0.97, transition: { duration: 0.25 } },
+  },
+  scan: {
+    initial: { opacity: 0, scale: 0.92 },
+    animate: { opacity: 1, scale: 1 },
+    exit:    { opacity: 0, scale: 1.05, transition: { duration: 0.3 } },
+  },
+  analyzing: {
+    initial: { opacity: 0, y: 60, scale: 0.95 },
+    animate: { opacity: 1, y: 0,  scale: 1 },
+    exit:    { opacity: 0, y: -30, scale: 0.98, transition: { duration: 0.3 } },
+  },
+  results: {
+    initial: { opacity: 0, x: -40, scale: 0.97 },
+    animate: { opacity: 1, x: 0,  scale: 1 },
+    exit:    { opacity: 0, x:  40, scale: 0.97, transition: { duration: 0.25 } },
+  },
+  detail: {
+    initial: { opacity: 0, x:  60, scale: 0.97 },
+    animate: { opacity: 1, x: 0,  scale: 1 },
+    exit:    { opacity: 0, x: -60, scale: 0.97, transition: { duration: 0.25 } },
+  },
+  assistant: {
+    initial: { opacity: 0, y: 40, scale: 0.96 },
+    animate: { opacity: 1, y: 0,  scale: 1 },
+    exit:    { opacity: 0, y: 40, scale: 0.96, transition: { duration: 0.25 } },
+  },
+};
+
+const getScreenVariant = (s: AppScreen | "assistant") => variants[s];
+
+/* ------------------------------------------------------------------ */
+
 const Index = () => {
   const [screen, setScreen] = useState<AppScreen>("splash");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [activeTab, setActiveTab] = useState("scan");
 
-  const handleSplashDone = () => setScreen("home");
+  /* Track previous screen for back-animations */
+  const prevScreen = useRef<AppScreen>("splash");
+  const setScreenWithHistory = useCallback((next: AppScreen) => {
+    prevScreen.current = screen;
+    setScreen(next);
+  }, [screen]);
+
+  const handleSplashDone = () => setScreenWithHistory("home");
   const handleScan = () => {
-    setScreen("scan");
+    setScreenWithHistory("scan");
     setActiveTab("scan");
   };
-  const handleCapture = () => setScreen("analyzing");
-  const handleAnalysisDone = () => setScreen("results");
+  const handleCapture = () => setScreenWithHistory("analyzing");
+  const handleAnalysisDone = () => setScreenWithHistory("results");
   const handleSelectItem = (item: MenuItem) => {
     setSelectedItem(item);
-    setScreen("detail");
+    setScreenWithHistory("detail");
   };
   const handleBack = () => {
-    if (screen === "detail") setScreen("results");
-    else if (screen === "results") setScreen("home");
-    else setScreen("home");
+    if (screen === "detail") setScreenWithHistory("results");
+    else if (screen === "results") setScreenWithHistory("home");
+    else setScreenWithHistory("home");
   };
   const handleNavTab = (tab: string) => {
     setActiveTab(tab);
     if (tab === "scan") handleScan();
-    else if (tab === "assistant") setScreen("home");
-    else if (tab === "home") setScreen("home");
+    else if (tab === "assistant") setScreenWithHistory("home");
+    else if (tab === "home") setScreenWithHistory("home");
   };
 
   const showNav = screen !== "splash" && screen !== "scan" && screen !== "analyzing";
+  const v = getScreenVariant(screen);
 
   return (
-    <div className="app-shell bg-background">
-      <AnimatePresence mode="wait">
+    <div className="app-shell bg-background overflow-hidden">
+      <AnimatePresence mode="wait" initial={false}>
         {screen === "splash" && (
-          <motion.div key="splash" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="splash"
+            className="absolute inset-0 z-50"
+            variants={getScreenVariant("splash")}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+          >
             <SplashScreen onDone={handleSplashDone} />
           </motion.div>
         )}
+
         {screen === "home" && (
-          <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="home"
+            className="absolute inset-0"
+            variants={v}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+          >
             <HomeScreen onScan={handleScan} />
           </motion.div>
         )}
+
         {screen === "scan" && (
-          <motion.div key="scan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <ScannerScreen onCapture={handleCapture} onClose={() => setScreen("home")} />
+          <motion.div
+            key="scan"
+            className="absolute inset-0 z-40"
+            variants={v}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+          >
+            <ScannerScreen onCapture={handleCapture} onClose={() => setScreenWithHistory("home")} />
           </motion.div>
         )}
+
         {screen === "analyzing" && (
-          <motion.div key="analyzing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="analyzing"
+            className="absolute inset-0 z-40"
+            variants={v}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+          >
             <AnalyzingScreen onDone={handleAnalysisDone} />
           </motion.div>
         )}
+
         {screen === "results" && (
-          <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="results"
+            className="absolute inset-0"
+            variants={v}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+          >
             <MenuResultsScreen items={MOCK_MENU} onSelect={handleSelectItem} onBack={handleBack} />
           </motion.div>
         )}
+
         {screen === "detail" && selectedItem && (
-          <motion.div key="detail" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
+          <motion.div
+            key="detail"
+            className="absolute inset-0 z-30"
+            variants={v}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+          >
             <MenuItemDetail item={selectedItem} onBack={handleBack} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {showNav && activeTab === "assistant" && (
-        <motion.div key="assistant" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-40">
-          <AssistantScreen />
+      <AnimatePresence>
+        {showNav && activeTab === "assistant" && (
+          <motion.div
+            key="assistant"
+            className="absolute inset-0 z-40"
+            variants={getScreenVariant("assistant")}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={spring}
+          >
+            <AssistantScreen />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {showNav && (
+        <motion.div
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        >
+          <BottomNav activeTab={activeTab} onTabChange={handleNavTab} />
         </motion.div>
       )}
-
-      {showNav && <BottomNav activeTab={activeTab} onTabChange={handleNavTab} />}
     </div>
   );
 };
@@ -160,29 +287,48 @@ const HomeScreen = ({ onScan }: { onScan: () => void }) => (
     </div>
 
     <div className="flex-1 flex flex-col items-center justify-center gap-8">
-      <div className="w-24 h-24 rounded-2xl bg-card shadow-lg flex items-center justify-center relative">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.15, ...spring }}
+        className="w-24 h-24 rounded-2xl bg-card shadow-lg flex items-center justify-center relative"
+      >
         <span className="text-4xl">🍴</span>
         <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent animate-pulse-dot" />
-      </div>
+      </motion.div>
 
-      <div className="text-center space-y-2">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25, ...spring }}
+        className="text-center space-y-2"
+      >
         <h1 className="text-3xl font-display font-bold text-foreground">DishyLen — Scan a Menu for Nutrition Insights</h1>
         <p className="text-muted-foreground text-sm max-w-[260px]">
           Point your camera at any restaurant menu to get instant nutritional insights
         </p>
-      </div>
+      </motion.div>
 
-      <button
+      <motion.button
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.35, ...spring }}
+        whileTap={{ scale: 0.92 }}
         onClick={onScan}
-        className="mt-4 bg-primary text-primary-foreground px-10 py-4 rounded-full font-semibold text-base shadow-lg hover:shadow-xl transition-all active:scale-95"
+        className="mt-4 bg-primary text-primary-foreground px-10 py-4 rounded-full font-semibold text-base shadow-lg hover:shadow-xl transition-shadow"
       >
         Start Scanning
-      </button>
+      </motion.button>
     </div>
 
-    <p className="text-center text-xs text-muted-foreground mt-auto">
+    <motion.p
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.5 }}
+      className="text-center text-xs text-muted-foreground mt-auto"
+    >
       CULINARY LABORATORY V2.4
-    </p>
+    </motion.p>
   </div>
 );
 
