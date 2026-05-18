@@ -30,12 +30,12 @@ const MenuResultsScreen = ({ items, onSelect, onBack }: Props) => {
   const [hovered, setHovered] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col min-h-screen px-6 pt-6 pb-24">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="flex flex-col min-h-screen pt-6 pb-24">
+      <div className="flex items-center gap-3 mb-5 px-6">
         <button onClick={onBack} aria-label="Go back to home" className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
           <ArrowLeft size={18} className="text-foreground" />
         </button>
-        <h1 className="text-xl font-display font-bold text-foreground flex-1">Scanned Menu Items</h1>
+        <h1 className="text-xl font-display font-bold text-foreground flex-1">Scanned Menu</h1>
         <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center" aria-hidden="true">
           <Search size={16} className="text-muted-foreground" />
         </div>
@@ -46,7 +46,7 @@ const MenuResultsScreen = ({ items, onSelect, onBack }: Props) => {
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 220, damping: 24 }}
-        className="relative rounded-2xl overflow-hidden shadow-xl mb-5 bg-card"
+        className="relative overflow-hidden shadow-2xl bg-card mx-3 rounded-2xl"
       >
         <img
           src={menuImage}
