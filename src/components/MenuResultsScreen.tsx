@@ -105,43 +105,8 @@ const MenuResultsScreen = ({ items, onSelect, onBack }: Props) => {
         )}
       </AnimatePresence>
 
-      <p className="text-sm text-muted-foreground mb-3">Or browse the list</p>
-
-      <div className="space-y-3">
-        {items.map((item, i) => (
-          <motion.button
-            key={item.id}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 + i * 0.05 }}
-            onClick={() => onSelect(item)}
-            className="w-full text-left bg-card rounded-2xl p-4 space-y-2 active:scale-[0.98] transition-transform"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-display font-bold text-foreground">{item.name}</h2>
-              {item.price && <span className="text-sm font-semibold text-primary">{item.price}</span>}
-            </div>
-            <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-            <div className="flex gap-3 pt-1">
-              <MacroPill label="Cal" value={item.calories} color="bg-primary" />
-              <MacroPill label="P" value={item.protein} color="bg-primary" />
-              <MacroPill label="C" value={item.carbs} color="bg-accent" />
-              <MacroPill label="F" value={item.fats} color="bg-muted-foreground" />
-            </div>
-          </motion.button>
-        ))}
-      </div>
     </div>
   );
 };
-
-const MacroPill = ({ label, value, color }: { label: string; value: number; color: string }) => (
-  <div className="flex items-center gap-1.5">
-    <div className={`w-2 h-2 rounded-full ${color}`} />
-    <span className="text-[11px] text-muted-foreground">
-      {label} <span className="font-semibold text-foreground">{value}{label === "Cal" ? "" : "g"}</span>
-    </span>
-  </div>
-);
 
 export default MenuResultsScreen;
