@@ -46,7 +46,7 @@ const MenuResultsScreen = ({ items, onSelect, onBack }: Props) => {
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 220, damping: 24 }}
-        className="relative overflow-hidden shadow-2xl bg-card mx-3 rounded-2xl"
+        className="relative overflow-hidden shadow-2xl bg-card mx-1 rounded-2xl"
       >
         <img
           src={menuImage}
