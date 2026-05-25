@@ -1,8 +1,70 @@
 import { X, Zap, ImagePlus, Sparkles } from "lucide-react";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { Capacitor } from "@capacitor/core";
+import { useRef } from "react";
+import { imageDataUrlToFile } from "@/lib/dishyApi";
 
-const ScannerScreen = ({ onCapture, onClose }: { onCapture: () => void; onClose: () => void }) => {
+interface Props {
+  onCapture: (payload: { file: File; previewUrl: string }) => void;
+  onClose: () => void;
+}
+
+const ScannerScreen = ({ onCapture, onClose }: Props) => {
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleWebFile = (file?: File) => {
+    if (!file) return;
+    onCapture({ file, previewUrl: URL.createObjectURL(file) });
+  };
+
+  const pickImage = async (source: CameraSource) => {
+    if (!Capacitor.isNativePlatform()) {
+      if (source === CameraSource.Camera) cameraInputRef.current?.click();
+      else libraryInputRef.current?.click();
+      return;
+    }
+
+    try {
+      await Camera.requestPermissions({
+        permissions: source === CameraSource.Camera ? ["camera"] : ["photos"],
+      });
+
+      const photo = await Camera.getPhoto({
+        source,
+        resultType: CameraResultType.DataUrl,
+        quality: 90,
+        allowEditing: false,
+        correctOrientation: true,
+      });
+
+      if (!photo.dataUrl) return;
+      const file = await imageDataUrlToFile(photo.dataUrl, `menu-${Date.now()}.jpg`);
+      onCapture({ file, previewUrl: photo.dataUrl });
+    } catch (error) {
+      if (error instanceof Error && error.message.toLowerCase().includes("cancel")) return;
+      console.error("Image selection failed", error);
+    }
+  };
+
   return (
     <div className="relative min-h-screen flex flex-col" style={{ background: "linear-gradient(180deg, hsl(120 15% 30%), hsl(80 15% 35%), hsl(40 20% 40%))" }}>
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => handleWebFile(event.target.files?.[0])}
+      />
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => handleWebFile(event.target.files?.[0])}
+      />
+
       {/* Top bar */}
       <h1 className="sr-only">Scan a restaurant menu with DishyLen</h1>
       <div className="flex items-center justify-between px-4 pt-4 pb-2 relative z-10">
@@ -37,14 +99,18 @@ const ScannerScreen = ({ onCapture, onClose }: { onCapture: () => void; onClose:
       <div className="px-6 pb-8 space-y-4">
         <div className="flex items-center justify-between px-4">
           <div className="flex flex-col items-center gap-1">
-            <button aria-label="Upload menu photo from library" className="w-14 h-14 rounded-2xl bg-foreground/20 backdrop-blur-sm flex items-center justify-center">
+            <button
+              onClick={() => pickImage(CameraSource.Photos)}
+              aria-label="Upload menu photo from library"
+              className="w-14 h-14 rounded-2xl bg-foreground/20 backdrop-blur-sm flex items-center justify-center"
+            >
               <ImagePlus size={22} className="text-primary-foreground" />
             </button>
             <span className="text-primary-foreground/70 text-[10px] uppercase tracking-wider">Upload</span>
           </div>
 
           <button
-            onClick={onCapture}
+            onClick={() => pickImage(CameraSource.Camera)}
             aria-label="Capture menu photo"
             className="w-20 h-20 rounded-full border-4 border-primary-foreground/40 flex items-center justify-center active:scale-90 transition-transform"
           >

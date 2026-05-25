@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DishyLen</string>
+    <string name="title_activity_main">DishyLen</string>
+    <string name="package_name">app.lovable.e275f5083d2543deaa0ef517ebf6af67</string>
+    <string name="custom_url_scheme">app.lovable.e275f5083d2543deaa0ef517ebf6af67</string>
+</resources>

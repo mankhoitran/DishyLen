@@ -7,6 +7,16 @@ import MenuResultsScreen from "@/components/MenuResultsScreen";
 import MenuItemDetail from "@/components/MenuItemDetail";
 import BottomNav from "@/components/BottomNav";
 import AssistantScreen from "@/components/AssistantScreen";
+import {
+  ocrMenuItems,
+  ocrMenuSelect,
+  queryDish,
+  summarizeDish,
+  uploadMenuImage,
+  type OcrBox,
+  type OcrDish,
+  type UploadedMenuImage,
+} from "@/lib/dishyApi";
 
 export type AppScreen = "splash" | "home" | "scan" | "analyzing" | "results" | "detail";
 
@@ -21,6 +31,11 @@ export interface MenuItem {
   allergens: string[];
   ingredients: string[];
   price?: string;
+  box?: OcrBox;
+  ocr?: OcrDish;
+  summary?: string;
+  sources?: string[];
+  isLoading?: boolean;
 }
 
 const MOCK_MENU: MenuItem[] = [
@@ -174,6 +189,11 @@ const Index = () => {
   const [screen, setScreen] = useState<AppScreen>("splash");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [activeTab, setActiveTab] = useState("scan");
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuImageUrl, setMenuImageUrl] = useState<string | undefined>();
+  const [uploadedMenu, setUploadedMenu] = useState<UploadedMenuImage | undefined>();
+  const [analysisStatus, setAnalysisStatus] = useState("Waiting for menu image...");
+  const [analysisError, setAnalysisError] = useState<string | undefined>();
 
   /* Track previous screen for back-animations */
   const prevScreen = useRef<AppScreen>("splash");
@@ -187,11 +207,64 @@ const Index = () => {
     setScreenWithHistory("scan");
     setActiveTab("scan");
   };
-  const handleCapture = () => setScreenWithHistory("analyzing");
-  const handleAnalysisDone = () => setScreenWithHistory("results");
-  const handleSelectItem = (item: MenuItem) => {
-    setSelectedItem(item);
+  const handleCapture = async ({ file, previewUrl }: { file: File; previewUrl: string }) => {
+    setMenuImageUrl(previewUrl);
+    setAnalysisError(undefined);
+    setAnalysisStatus("Uploading menu image...");
+    setScreenWithHistory("analyzing");
+
+    try {
+      const upload = await uploadMenuImage(file);
+      setUploadedMenu(upload);
+      setAnalysisStatus("Running OCR on menu image...");
+      const ocrDishes = await ocrMenuItems(upload, file);
+
+      setMenuItems(ocrDishes.map((dish, index) => ({
+        id: dish.id || String(index + 1),
+        name: dish.name,
+        description: dish.text || "Tap to retrieve nutrition details.",
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+        allergens: [],
+        ingredients: [],
+        price: dish.price,
+        box: dish.box,
+        ocr: dish,
+      })));
+      setAnalysisStatus(`Detected ${ocrDishes.length} dishes.`);
+      setScreenWithHistory("results");
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : "Menu OCR failed.");
+    }
+  };
+  const handleSelectItem = async (item: MenuItem) => {
+    const loadingItem = { ...item, isLoading: true };
+    setSelectedItem(loadingItem);
     setScreenWithHistory("detail");
+
+    try {
+      const selected = item.ocr ? await ocrMenuSelect(item.ocr, uploadedMenu) : null;
+      const retrieved = selected || (item.ocr ? await queryDish(item.ocr) : null);
+      const summarized = item.ocr && retrieved ? await summarizeDish(item.ocr, retrieved) : retrieved;
+      if (!summarized) return;
+
+      setSelectedItem({
+        ...item,
+        ...summarized,
+        id: item.id,
+        box: item.box,
+        ocr: item.ocr,
+        isLoading: false,
+      });
+    } catch (error) {
+      setSelectedItem({
+        ...item,
+        isLoading: false,
+        description: error instanceof Error ? error.message : "Dish retrieval failed.",
+      });
+    }
   };
   const handleBack = () => {
     if (screen === "detail") setScreenWithHistory("results");
@@ -263,7 +336,7 @@ const Index = () => {
             exit="exit"
             transition={spring}
           >
-            <AnalyzingScreen onDone={handleAnalysisDone} />
+            <AnalyzingScreen status={analysisStatus} error={analysisError} />
           </motion.div>
         )}
 
@@ -277,7 +350,7 @@ const Index = () => {
             exit="exit"
             transition={spring}
           >
-            <MenuResultsScreen items={MOCK_MENU} onSelect={handleSelectItem} onBack={handleBack} />
+            <MenuResultsScreen items={menuItems.length ? menuItems : MOCK_MENU} imageUrl={menuImageUrl} onSelect={handleSelectItem} onBack={handleBack} />
           </motion.div>
         )}
 

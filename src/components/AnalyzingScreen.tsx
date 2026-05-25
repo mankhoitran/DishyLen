@@ -2,20 +2,17 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FlaskConical, Menu, CheckCircle2, Loader2 } from "lucide-react";
 
-const AnalyzingScreen = ({ onDone }: { onDone: () => void }) => {
+const AnalyzingScreen = ({ status, error }: { status?: string; error?: string }) => {
   const [step1, setStep1] = useState(0);
   const [step2, setStep2] = useState(0);
 
   useEffect(() => {
     const t1 = setInterval(() => setStep1((p) => Math.min(p + 3, 100)), 40);
     const t2 = setTimeout(() => {
-      const t2i = setInterval(() => setStep2((p) => {
-        if (p >= 100) { clearInterval(t2i); setTimeout(onDone, 600); return 100; }
-        return p + 2;
-      }), 40);
+      const t2i = setInterval(() => setStep2((p) => Math.min(p + 2, 95)), 40);
     }, 1200);
     return () => { clearInterval(t1); clearTimeout(t2); };
-  }, [onDone]);
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-6 pb-10">
@@ -39,8 +36,8 @@ const AnalyzingScreen = ({ onDone }: { onDone: () => void }) => {
 
       <div className="text-center mb-8 space-y-2">
         <h1 className="text-3xl font-display font-bold text-foreground">Analyzing Menu Nutrition</h1>
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          Our clinical engine is extracting ingredients and cross-referencing nutritional databases.
+        <p className={`text-sm leading-relaxed ${error ? "text-destructive" : "text-muted-foreground"}`}>
+          {error || status || "OCR is extracting menu items and preparing clickable dish regions."}
         </p>
       </div>
 

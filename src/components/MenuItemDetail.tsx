@@ -1,4 +1,4 @@
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { MenuItem } from "@/pages/Index";
 
@@ -31,6 +31,12 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
             <h1 className="text-2xl font-display font-bold text-foreground">{item.name}</h1>
             {item.price && <span className="text-lg font-bold text-primary">{item.price}</span>}
           </div>
+          {item.isLoading && (
+            <div className="flex items-center gap-2 text-xs text-primary font-semibold">
+              <Loader2 size={14} className="animate-spin" />
+              Retrieving and summarizing dish nutrition...
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">{item.description}</p>
         </div>
 
@@ -79,6 +85,17 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
             ))}
           </div>
         </div>
+
+        {item.sources && item.sources.length > 0 && (
+          <div className="bg-card rounded-2xl p-5 space-y-3">
+            <h2 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Sources</h2>
+            <div className="space-y-1">
+              {item.sources.map((source) => (
+                <p key={source} className="text-xs text-muted-foreground break-words">{source}</p>
+              ))}
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );
