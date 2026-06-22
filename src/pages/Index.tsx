@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import SplashScreen from "@/components/SplashScreen";
 import ScannerScreen from "@/components/ScannerScreen";
 import AnalyzingScreen from "@/components/AnalyzingScreen";
@@ -10,12 +11,16 @@ import AssistantScreen from "@/components/AssistantScreen";
 import {
   ocrMenuItems,
   ocrMenuSelect,
-  queryDish,
+  getAuthToken,
+  getAuthUser,
+  queryDishVllm,
+  saveHistoryEntry,
   summarizeDish,
   uploadMenuImage,
   type OcrBox,
   type OcrDish,
   type UploadedMenuImage,
+  type AuthUser,
 } from "@/lib/dishyApi";
 
 export type AppScreen = "splash" | "home" | "scan" | "analyzing" | "results" | "detail";
@@ -186,6 +191,7 @@ const getScreenVariant = (s: AppScreen | "assistant") => variants[s];
 /* ------------------------------------------------------------------ */
 
 const Index = () => {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState<AppScreen>("splash");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [activeTab, setActiveTab] = useState("scan");
@@ -194,6 +200,8 @@ const Index = () => {
   const [uploadedMenu, setUploadedMenu] = useState<UploadedMenuImage | undefined>();
   const [analysisStatus, setAnalysisStatus] = useState("Waiting for menu image...");
   const [analysisError, setAnalysisError] = useState<string | undefined>();
+  const [isAuthenticated] = useState(() => Boolean(getAuthToken()));
+  const [authUser] = useState<AuthUser | undefined>(() => getAuthUser() ?? undefined);
 
   /* Track previous screen for back-animations */
   const prevScreen = useRef<AppScreen>("splash");
@@ -246,9 +254,27 @@ const Index = () => {
 
     try {
       const selected = item.ocr ? await ocrMenuSelect(item.ocr, uploadedMenu) : null;
-      const retrieved = selected || (item.ocr ? await queryDish(item.ocr) : null);
+      const retrieved = selected || (item.ocr ? await queryDishVllm(item.ocr) : null);
       const summarized = item.ocr && retrieved ? await summarizeDish(item.ocr, retrieved) : retrieved;
       if (!summarized) return;
+      saveHistoryEntry({
+        type: "query",
+        title: summarized.name,
+        payload: {
+          source: "dish-search",
+          dish: summarized.name,
+          searchedDish: item.ocr?.name || item.name,
+          description: summarized.description,
+          calories: summarized.calories,
+          protein: summarized.protein,
+          carbs: summarized.carbs,
+          fats: summarized.fats,
+          price: summarized.price,
+          allergens: summarized.allergens,
+          ingredients: summarized.ingredients,
+          summary: summarized.summary,
+        },
+      });
 
       setSelectedItem({
         ...item,
@@ -276,6 +302,7 @@ const Index = () => {
     if (tab === "scan") handleScan();
     else if (tab === "assistant") setScreenWithHistory("home");
     else if (tab === "home") setScreenWithHistory("home");
+    else if (tab === "history") navigate("/history");
   };
 
   const showNav = screen !== "splash" && screen !== "scan" && screen !== "analyzing";
@@ -308,7 +335,7 @@ const Index = () => {
             exit="exit"
             transition={spring}
           >
-            <HomeScreen onScan={handleScan} />
+            <HomeScreen onScan={handleScan} user={authUser} />
           </motion.div>
         )}
 
@@ -391,19 +418,90 @@ const Index = () => {
           animate={{ y: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
         >
-          <BottomNav activeTab={activeTab} onTabChange={handleNavTab} />
+          <BottomNav activeTab={activeTab} onTabChange={handleNavTab} showHistory={isAuthenticated} />
         </motion.div>
       )}
     </div>
   );
 };
 
-const HomeScreen = ({ onScan }: { onScan: () => void }) => (
+const HomeScreen = ({ onScan, user }: { onScan: () => void; user?: AuthUser }) => {
+  const [showProfile, setShowProfile] = useState(false);
+
+  return (
   <div className="flex flex-col min-h-screen px-6 pt-14 pb-24">
     <div className="flex items-center justify-between mb-10">
       <p className="text-2xl font-bold font-display text-foreground">DishyLen</p>
-      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-        <span className="text-primary text-lg" aria-hidden="true">👤</span>
+
+      {/* Profile button + dropdown anchored to the right */}
+      <div className="relative">
+        <button
+          id="profile-btn"
+          aria-label="View profile"
+          onClick={() => setShowProfile((v) => !v)}
+          className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 active:scale-90 transition-all"
+        >
+          {user?.picture ? (
+            <img src={user.picture} alt="avatar" className="w-full h-full rounded-full object-cover" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+            </svg>
+          )}
+        </button>
+
+        {/* Dropdown box */}
+        <AnimatePresence>
+          {showProfile && (
+            <>
+              {/* invisible click-outside layer */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowProfile(false)}
+              />
+
+              <motion.div
+                key="profile-dropdown"
+                initial={{ opacity: 0, scale: 0.92, y: -6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: -6 }}
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                className="absolute top-12 right-0 z-50 w-60 rounded-2xl shadow-xl overflow-hidden"
+                style={{ background: "var(--card, #fff)", border: "1px solid var(--border, #e5e7eb)" }}
+              >
+                {/* Caret */}
+                <div
+                  className="absolute -top-2 right-3 w-4 h-4 rotate-45 rounded-sm"
+                  style={{ background: "var(--card, #fff)", border: "1px solid var(--border, #e5e7eb)", clipPath: "polygon(0 0, 100% 0, 0 100%)" }}
+                />
+
+                <div className="px-4 py-4 space-y-3">
+                  {/* Name */}
+                  {user?.name && (
+                    <p className="font-semibold text-sm text-foreground truncate">{user.name}</p>
+                  )}
+
+                  {/* ID */}
+                  <div className="rounded-xl px-3 py-2.5 space-y-0.5" style={{ background: "var(--muted, #f3f4f6)" }}>
+                    <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground, #6b7280)" }}>User ID</p>
+                    {user?.id !== undefined
+                      ? <p className="text-xs font-mono font-semibold break-all text-foreground">{String(user.id)}</p>
+                      : <p className="text-xs text-muted-foreground italic">Not signed in</p>
+                    }
+                  </div>
+
+                  {/* Email */}
+                  {user?.email && (
+                    <div className="rounded-xl px-3 py-2.5 space-y-0.5" style={{ background: "var(--muted, #f3f4f6)" }}>
+                      <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground, #6b7280)" }}>Email</p>
+                      <p className="text-xs break-all text-foreground">{user.email}</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
     </div>
 
@@ -451,6 +549,7 @@ const HomeScreen = ({ onScan }: { onScan: () => void }) => (
       CULINARY LABORATORY V2.4
     </motion.p>
   </div>
-);
+  );
+};
 
 export default Index;
