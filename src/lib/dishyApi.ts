@@ -41,6 +41,39 @@ export interface DishInfo {
   raw?: unknown;
 }
 
+export interface AuthUser {
+  id?: string | number;
+  email?: string;
+  name?: string;
+  picture?: string;
+  picture_url?: string;
+  [key: string]: unknown;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  user: AuthUser;
+  [key: string]: unknown;
+}
+
+export type HistoryEntryType = "query" | "ocr" | "summary";
+
+export interface HistoryEntry {
+  id: string;
+  type: HistoryEntryType;
+  title: string;
+  payload: Record<string, unknown> | string;
+  createdAt: string;
+  userId?: string;
+  userEmail?: string;
+}
+
+export type QueryDishPayload = Record<string, unknown> | string;
+
+const AUTH_TOKEN_KEY = "dishy_access_token";
+const AUTH_USER_KEY = "dishy_user";
+const HISTORY_KEY = "dishy_history_entries";
+
 const NUTRITION_PARSE_PROMPT = `
 Extract nutrition information for this dish and return ONLY valid JSON.
 No markdown. No explanation. No code fence.
@@ -64,10 +97,42 @@ Rules:
 - Preserve likely ingredients and allergens only when supported by the text.
 `.trim();
 
+const getStoredUser = (): AuthUser | undefined => {
+  if (typeof localStorage === "undefined") return undefined;
+  const raw = localStorage.getItem(AUTH_USER_KEY);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return undefined;
+  }
+};
+
+export const setAuthToken = (token: string) => {
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+};
+
+export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY);
+
+export const setAuthUser = (user: AuthUser) => {
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+};
+
+export const getAuthUser = () => getStoredUser();
+
+export const clearAuth = () => {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+};
+
 const postJson = async <T>(path: string, body: unknown): Promise<T> => {
+  const token = getAuthToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(body),
   });
 
@@ -76,6 +141,95 @@ const postJson = async <T>(path: string, body: unknown): Promise<T> => {
   }
 
   return response.json();
+};
+
+const getJson = async <T>(path: string): Promise<T> => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${path} failed with ${response.status}: ${await response.text()}`);
+  }
+
+  return response.json();
+};
+
+const normalizeAuthUser = (user: AuthUser): AuthUser => ({
+  ...user,
+  id: user.id !== undefined ? String(user.id) : undefined,
+  picture: user.picture ?? user.picture_url,
+});
+
+export const loginWithGoogle = async (idToken: string): Promise<AuthResponse> => {
+  const auth = await postJson<AuthResponse>("/auth/google", { id_token: idToken });
+  setAuthToken(auth.access_token);
+  const user = normalizeAuthUser(auth.user);
+  setAuthUser(user);
+  return { ...auth, user };
+};
+
+export const saveHistoryEntry = (entry: Omit<HistoryEntry, "id" | "createdAt" | "userId" | "userEmail"> & Partial<HistoryEntry>) => {
+  const user = getStoredUser();
+  const nextEntry: HistoryEntry = {
+    ...entry,
+    id: entry.id || (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+    createdAt: entry.createdAt || new Date().toISOString(),
+    userId: entry.userId || (user?.id !== undefined ? String(user.id) : undefined),
+    userEmail: entry.userEmail || user?.email,
+  };
+  const entries = loadAllHistoryEntries();
+  localStorage.setItem(HISTORY_KEY, JSON.stringify([nextEntry, ...entries].slice(0, 100)));
+  void postJson<unknown>("/history", {
+    type: nextEntry.type,
+    title: nextEntry.title,
+    payload: typeof nextEntry.payload === "string" ? { text: nextEntry.payload } : nextEntry.payload,
+  }).catch((error) => {
+    console.debug("[DishyLen API] /history sync failed, kept local copy", error);
+  });
+  return nextEntry;
+};
+
+// Example: saveHistoryEntry({ type: "query", title: "Pad thai", payload: { query: "Pad thai nutrition" } });
+
+const loadAllHistoryEntries = (): HistoryEntry[] => {
+  const raw = localStorage.getItem(HISTORY_KEY);
+  if (!raw) return [];
+  try {
+    const entries = JSON.parse(raw);
+    return Array.isArray(entries) ? entries : [];
+  } catch {
+    return [];
+  }
+};
+
+export const loadHistoryEntries = (userIdOrEmail?: string): HistoryEntry[] => {
+  const user = getStoredUser();
+  const key = userIdOrEmail || (user?.id !== undefined ? String(user.id) : undefined) || user?.email;
+  return loadAllHistoryEntries()
+    .filter((entry) => !key || String(entry.userId) === key || entry.userEmail === key)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+};
+
+const normalizeHistoryEntry = (entry: any): HistoryEntry => ({
+  id: String(entry.id),
+  type: entry.type,
+  title: String(entry.title ?? "History entry"),
+  payload: entry.payload ?? {},
+  createdAt: String(entry.createdAt ?? entry.created_at ?? new Date().toISOString()),
+  userId: entry.userId !== undefined ? String(entry.userId) : entry.user_id !== undefined ? String(entry.user_id) : undefined,
+  userEmail: entry.userEmail ?? entry.user_email,
+});
+
+export const fetchHistoryEntries = async (type?: HistoryEntryType): Promise<HistoryEntry[]> => {
+  const params = new URLSearchParams({ limit: "100" });
+  if (type) params.set("type", type);
+  const raw: any = await getJson(`/history?${params.toString()}`);
+  const items = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+  return items.map(normalizeHistoryEntry);
 };
 
 const firstArray = (value: any): any[] => {
@@ -91,6 +245,15 @@ const firstArray = (value: any): any[] => {
 const toNumber = (value: unknown, fallback = 0) => {
   const next = Number(value);
   return Number.isFinite(next) ? next : fallback;
+};
+
+const firstNumber = (...values: unknown[]) => {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const next = Number(value);
+    if (Number.isFinite(next)) return next;
+  }
+  return undefined;
 };
 
 const toOptionalNumber = (value: unknown, fallback?: number) => {
@@ -273,6 +436,20 @@ const normalizeList = (value: unknown): string[] => {
   return [];
 };
 
+const mergeLists = (...values: unknown[]): string[] => {
+  const seen = new Set<string>();
+  const items: string[] = [];
+
+  values.flatMap(normalizeList).forEach((item) => {
+    const key = item.trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    items.push(item.trim());
+  });
+
+  return items;
+};
+
 export const ocrMenuSelect = async (dish: OcrDish, upload?: UploadedMenuImage): Promise<DishInfo | undefined> => {
   try {
     const raw = await postJson<unknown>("/vllm/ocr/select", {
@@ -292,34 +469,63 @@ export const ocrMenuSelect = async (dish: OcrDish, upload?: UploadedMenuImage): 
 const normalizeDishInfo = (raw: any, fallbackName: string, fallbackPrice?: string): DishInfo => {
   const dish = raw?.dish_info ?? raw?.dish ?? raw?.result ?? raw?.data ?? raw;
   const macros = dish?.macros ?? {};
+  const nutrition = dish?.nutrition ?? {};
   return {
     name: String(dish?.name ?? dish?.dish_name ?? dish?.dish ?? fallbackName),
     description: String(dish?.description ?? dish?.summary ?? dish?.answer ?? "Nutrition details retrieved from the backend."),
-    calories: toNumber(dish?.calories ?? dish?.nutrition?.calories ?? macros.calories ?? macros.kcal),
-    protein: toNumber(dish?.protein ?? dish?.nutrition?.protein ?? macros.protein),
-    carbs: toNumber(dish?.carbs ?? dish?.carbohydrates ?? dish?.nutrition?.carbs ?? macros.carbs),
-    fats: toNumber(dish?.fats ?? dish?.fat ?? dish?.nutrition?.fats ?? macros.fat ?? macros.fats),
-    allergens: normalizeList(dish?.allergens ?? raw?.allergens),
-    ingredients: normalizeList(dish?.ingredients ?? raw?.ingredients),
+    calories: firstNumber(
+      dish?.calories,
+      nutrition.calories,
+      nutrition.calories_kcal,
+      macros.calories,
+      macros.kcal,
+      macros.calories_kcal,
+    ) ?? 0,
+    protein: firstNumber(
+      dish?.protein,
+      nutrition.protein,
+      nutrition.protein_g,
+      macros.protein,
+      macros.protein_g,
+    ) ?? 0,
+    carbs: firstNumber(
+      dish?.carbs,
+      dish?.carbohydrates,
+      nutrition.carbs,
+      nutrition.carbohydrates,
+      nutrition.carbs_g,
+      macros.carbs,
+      macros.carbohydrates,
+      macros.carbs_g,
+    ) ?? 0,
+    fats: firstNumber(
+      dish?.fats,
+      dish?.fat,
+      nutrition.fats,
+      nutrition.fat,
+      nutrition.fat_g,
+      macros.fat,
+      macros.fats,
+      macros.fat_g,
+    ) ?? 0,
+    allergens: mergeLists(dish?.allergens, raw?.allergens),
+    ingredients: mergeLists(dish?.ingredients, raw?.ingredients),
     price: dish?.price ? String(dish.price) : fallbackPrice,
     summary: dish?.summary ? String(dish.summary) : undefined,
-    sources: normalizeList(dish?.sources ?? raw?.sources),
+    sources: mergeLists(dish?.sources, raw?.sources),
     raw,
   };
 };
 
-export const queryDish = async (dish: OcrDish): Promise<DishInfo> => {
-  try {
-    const raw = await postJson<unknown>("/vllm/query", {
-      query: dish.name,
-    });
-    return normalizeDishInfo(raw, dish.name, dish.price);
-  } catch {
-    const params = new URLSearchParams({ dish_name: dish.name, query: dish.name });
-    const response = await fetch(`${API_BASE_URL}/vllm/query?${params.toString()}`);
-    if (!response.ok) throw new Error(`/vllm/query failed with ${response.status}: ${await response.text()}`);
-    return normalizeDishInfo(await response.json(), dish.name, dish.price);
-  }
+export const queryDish = async (payload: QueryDishPayload) => {
+  return postJson<unknown>("/query", typeof payload === "string" ? { query: payload } : payload);
+};
+
+export const queryDishVllm = async (dish: OcrDish): Promise<DishInfo> => {
+  const raw = await postJson<unknown>("/vllm/query", {
+    query: dish.name,
+  });
+  return normalizeDishInfo(raw, dish.name, dish.price);
 };
 
 export const summarizeDish = async (dish: OcrDish, info: DishInfo): Promise<DishInfo> => {
@@ -329,19 +535,24 @@ export const summarizeDish = async (dish: OcrDish, info: DishInfo): Promise<Dish
     max_words: 80,
     include_sources: true,
   });
+  const normalized = normalizeDishInfo(raw, info.name, info.price);
   const summary = raw?.summary ?? raw?.text ?? raw?.answer ?? raw?.result;
-  const parsed = summary ? parseNutritionText(String(summary)) : {};
+  const parseSource = [raw?.description, raw?.summary, raw?.text, raw?.answer, raw?.result]
+    .filter(Boolean)
+    .map(String)
+    .join("\n");
+  const parsed = parseSource ? parseNutritionText(parseSource) : {};
   return {
     ...info,
-    ...parsed,
+    ...normalized,
     summary: summary ? String(summary) : info.summary,
-    description: parsed.description || (summary ? String(summary) : info.description),
-    calories: parsed.calories ?? info.calories,
-    protein: parsed.protein ?? info.protein,
-    carbs: parsed.carbs ?? info.carbs,
-    fats: parsed.fats ?? info.fats,
-    ingredients: parsed.ingredients?.length ? parsed.ingredients : info.ingredients,
-    allergens: parsed.allergens?.length ? parsed.allergens : info.allergens,
-    sources: normalizeList(raw?.sources ?? info.sources),
+    description: normalized.description || parsed.description || (summary ? String(summary) : info.description),
+    calories: firstNumber(raw?.calories, parsed.calories, normalized.calories, info.calories) ?? 0,
+    protein: firstNumber(raw?.protein, parsed.protein, normalized.protein, info.protein) ?? 0,
+    carbs: firstNumber(raw?.carbs, parsed.carbs, normalized.carbs, info.carbs) ?? 0,
+    fats: firstNumber(raw?.fats, raw?.fat, parsed.fats, normalized.fats, info.fats) ?? 0,
+    ingredients: mergeLists(raw?.ingredients, parsed.ingredients, normalized.ingredients, info.ingredients),
+    allergens: mergeLists(raw?.allergens, parsed.allergens, normalized.allergens, info.allergens),
+    sources: mergeLists(raw?.sources, normalized.sources, info.sources),
   };
 };

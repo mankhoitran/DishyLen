@@ -7,12 +7,22 @@ interface Props {
   onBack: () => void;
 }
 
+const CALORIE_BAR_MAX_KCAL_PER_100 = 200;
+
+const scaleBarPct = (value: number, maxValue: number) => {
+  if (!Number.isFinite(value) || !Number.isFinite(maxValue) || maxValue <= 0) {
+    return 0;
+  }
+
+  return Math.min(Math.max((value / maxValue) * 100, 0), 100);
+};
+
 const MenuItemDetail = ({ item, onBack }: Props) => {
   const macros = [
-    { label: "Calories", value: `${item.calories}`, unit: "kcal", pct: 100 },
-    { label: "Protein", value: `${item.protein}`, unit: "g", pct: (item.protein / 50) * 100 },
-    { label: "Carbs", value: `${item.carbs}`, unit: "g", pct: (item.carbs / 100) * 100 },
-    { label: "Fats", value: `${item.fats}`, unit: "g", pct: (item.fats / 65) * 100 },
+    { label: "Calories", value: `${item.calories}`, unit: "kcal", pct: scaleBarPct(item.calories, CALORIE_BAR_MAX_KCAL_PER_100) },
+    { label: "Protein", value: `${item.protein}`, unit: "g", pct: scaleBarPct(item.protein, 50) },
+    { label: "Carbs", value: `${item.carbs}`, unit: "g", pct: scaleBarPct(item.carbs, 100) },
+    { label: "Fats", value: `${item.fats}`, unit: "g", pct: scaleBarPct(item.fats, 65) },
   ];
 
   return (
@@ -52,7 +62,7 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(m.pct, 100)}%` }}
+                  animate={{ width: `${m.pct}%` }}
                   transition={{ delay: 0.2 + i * 0.1, duration: 0.5 }}
                   className={`h-full rounded-full ${i === 0 ? "bg-primary" : i === 1 ? "bg-primary" : i === 2 ? "bg-accent" : "bg-muted-foreground"}`}
                 />

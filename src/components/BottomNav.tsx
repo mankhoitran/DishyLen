@@ -3,14 +3,15 @@ import { Home, ScanLine, MessageSquare, Clock } from "lucide-react";
 interface Props {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  showHistory?: boolean;
 }
 
-const BottomNav = ({ activeTab, onTabChange }: Props) => {
+const BottomNav = ({ activeTab, onTabChange, showHistory = false }: Props) => {
   const tabs = [
     { id: "home", icon: Home, label: "Home" },
     { id: "scan", icon: ScanLine, label: "Scan" },
     { id: "assistant", icon: MessageSquare, label: "Assistant" },
-    { id: "history", icon: Clock, label: "History" },
+    ...(showHistory ? [{ id: "history", icon: Clock, label: "History" }] : []),
   ];
 
   return (
