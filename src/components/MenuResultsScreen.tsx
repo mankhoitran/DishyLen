@@ -50,7 +50,7 @@ const MenuResultsScreen = ({ items, imageUrl, onSelect, onBack }: Props) => {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-y-auto pt-6 pb-24">
+    <div className="flex flex-col h-full overflow-y-auto pt-6 pb-24">
       <div className="flex items-center gap-3 mb-5 px-6">
         <button onClick={onBack} aria-label="Go back to home" className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
           <ArrowLeft size={18} className="text-foreground" />

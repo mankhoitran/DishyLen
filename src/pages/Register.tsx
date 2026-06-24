@@ -1,43 +1,43 @@
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate, Link } from "react-router-dom";
-import { Loader2, ShieldCheck, User } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
-import { getAuthToken, loginAsGuest, loginWithEmail } from "@/lib/dishyApi";
+import { getAuthToken, registerWithEmail } from "@/lib/dishyApi";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const Login = () => {
+const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
+
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   let from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/";
-  if (from === "/login") from = "/";
+  if (from === "/register" || from === "/login") from = "/";
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(undefined);
-    try {
-      await loginWithEmail(email, password);
-      navigate(from, { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed.");
-    } finally {
-      setIsLoading(false);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
     }
-  };
-
-  const handleGuestLogin = async () => {
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    
     setIsLoading(true);
     setError(undefined);
     try {
-      await loginAsGuest();
+      await registerWithEmail(email, password, name);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Guest login failed.");
+      setError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
       setIsLoading(false);
     }
@@ -64,13 +64,23 @@ const Login = () => {
           className="flex flex-1 flex-col justify-center"
         >
           <div className="space-y-3">
-            <h1 className="font-display text-4xl font-bold leading-tight text-foreground">Sign in to save your dish history</h1>
+            <h1 className="font-display text-4xl font-bold leading-tight text-foreground">Create an account</h1>
             <p className="max-w-[310px] text-sm leading-6 text-muted-foreground">
-              Keep scanned menus, dish lookups, and summaries available across sessions on this device.
+              Sign up to start tracking your food and menus seamlessly.
             </p>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="mt-10 space-y-4">
+          <form onSubmit={handleRegister} className="mt-10 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Name (Optional)</label>
+              <Input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="John Doe"
+                disabled={isLoading}
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Email</label>
               <Input
@@ -93,36 +103,27 @@ const Login = () => {
                 disabled={isLoading}
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Confirm Password</label>
+              <Input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={isLoading}
+              />
+            </div>
+
             <Button
               type="submit"
               disabled={isLoading}
               className="mt-6 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isLoading && <Loader2 size={18} className="animate-spin" />}
-              Sign in
+              Sign up
             </Button>
           </form>
-
-          <div className="relative mt-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-muted" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={handleGuestLogin}
-              disabled={isLoading}
-              className="flex h-14 w-full items-center justify-center gap-3 rounded-full bg-secondary px-5 text-sm font-semibold text-secondary-foreground shadow-sm hover:bg-secondary/80 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isLoading ? <Loader2 size={18} className="animate-spin" /> : <User size={18} />}
-              Continue as Guest
-            </button>
-          </div>
 
           {error && (
             <p className="mt-4 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -131,9 +132,9 @@ const Login = () => {
           )}
 
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link to="/register" className="font-semibold text-primary hover:underline">
-              Sign up
+            Already have an account?{" "}
+            <Link to="/login" className="font-semibold text-primary hover:underline">
+              Sign in
             </Link>
           </div>
         </motion.div>
@@ -142,4 +143,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;

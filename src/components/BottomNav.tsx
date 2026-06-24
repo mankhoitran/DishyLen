@@ -1,4 +1,5 @@
 import { Home, ScanLine, User, Clock } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface Props {
   activeTab: string;
@@ -15,7 +16,12 @@ const BottomNav = ({ activeTab, onTabChange, showHistory = false }: Props) => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-card/95 backdrop-blur-lg border-t border-border px-4 py-2 z-50">
+    <motion.div
+      initial={{ y: 100, x: "-50%" }}
+      animate={{ y: 0, x: "-50%" }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      className="fixed bottom-0 left-1/2 w-full max-w-[430px] bg-card/95 backdrop-blur-lg border-t border-border px-4 py-2 z-50"
+    >
       <div className="flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -35,7 +41,7 @@ const BottomNav = ({ activeTab, onTabChange, showHistory = false }: Props) => {
           );
         })}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

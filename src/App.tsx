@@ -7,6 +7,7 @@ import AuthGuard from "./components/AuthGuard.tsx";
 import History from "./pages/History.tsx";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
+import Register from "./pages/Register.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/history" element={<AuthGuard><History /></AuthGuard>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

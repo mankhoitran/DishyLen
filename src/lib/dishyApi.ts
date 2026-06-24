@@ -130,6 +130,16 @@ export const clearAuth = () => {
   localStorage.removeItem(AUTH_USER_KEY);
 };
 
+export const logoutUser = async (): Promise<void> => {
+  try {
+    await postJson("/auth/logout", {});
+  } catch (error) {
+    console.debug("Backend logout failed", error);
+  } finally {
+    clearAuth();
+  }
+};
+
 const postJson = async <T>(path: string, body: unknown): Promise<T> => {
   const token = getAuthToken();
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -169,8 +179,24 @@ const normalizeAuthUser = (user: AuthUser): AuthUser => ({
   picture: user.picture ?? user.picture_url,
 });
 
-export const loginWithGoogle = async (idToken: string): Promise<AuthResponse> => {
-  const auth = await postJson<AuthResponse>("/auth/google", { id_token: idToken });
+export const loginAsGuest = async (): Promise<AuthResponse> => {
+  const auth = await postJson<AuthResponse>("/auth/guest", {});
+  setAuthToken(auth.access_token);
+  const user = normalizeAuthUser(auth.user);
+  setAuthUser(user);
+  return { ...auth, user };
+};
+
+export const loginWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+  const auth = await postJson<AuthResponse>("/auth/login", { email, password });
+  setAuthToken(auth.access_token);
+  const user = normalizeAuthUser(auth.user);
+  setAuthUser(user);
+  return { ...auth, user };
+};
+
+export const registerWithEmail = async (email: string, password: string, name?: string): Promise<AuthResponse> => {
+  const auth = await postJson<AuthResponse>("/auth/register", { email, password, name });
   setAuthToken(auth.access_token);
   const user = normalizeAuthUser(auth.user);
   setAuthUser(user);
@@ -342,7 +368,7 @@ const parseNutritionText = (text: string): Partial<DishInfo> => {
     ),
     ingredients: normalizeList(source.ingredients),
     allergens: normalizeList(source.allergens),
-    allergyWarning: source.allergyWarning === true || source.allergy_warning === true,
+    allergyWarning: String(source.allergyWarning).toLowerCase() === "true" || String(source.allergy_warning).toLowerCase() === "true" || source.allergyWarning === true || source.allergy_warning === true,
   };
 };
 
@@ -616,6 +642,6 @@ export const summarizeDish = async (dish: OcrDish, info: DishInfo, userAllergies
     ingredients: mergeLists(raw?.ingredients, parsed.ingredients, normalized.ingredients, info.ingredients),
     allergens: mergeLists(raw?.allergens, parsed.allergens, normalized.allergens, info.allergens),
     sources: mergeLists(raw?.sources, normalized.sources, info.sources),
-    allergyWarning: raw?.allergyWarning === true || raw?.allergy_warning === true || parsed.allergyWarning === true || normalized.allergyWarning === true || info.allergyWarning === true,
+    allergyWarning: String(raw?.allergyWarning).toLowerCase() === "true" || String(raw?.allergy_warning).toLowerCase() === "true" || String(parsed.allergyWarning).toLowerCase() === "true" || String(normalized.allergyWarning).toLowerCase() === "true" || String(info.allergyWarning).toLowerCase() === "true" || raw?.allergyWarning === true || raw?.allergy_warning === true || parsed.allergyWarning === true || normalized.allergyWarning === true || info.allergyWarning === true,
   };
 };

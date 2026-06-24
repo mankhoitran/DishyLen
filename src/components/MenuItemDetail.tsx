@@ -2,6 +2,8 @@ import { ArrowLeft, AlertTriangle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { MenuItem } from "@/pages/Index";
 
+import { getAuthUser } from "@/lib/dishyApi";
+
 interface Props {
   item: MenuItem;
   onBack: () => void;
@@ -25,8 +27,22 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
     { label: "Fats", value: `${item.fats}`, unit: "g", pct: scaleBarPct(item.fats, 65) },
   ];
 
+  const user = getAuthUser();
+  const userAllergies = user?.allergies ? user.allergies.toLowerCase().split(",").map(a => a.trim()).filter(Boolean) : [];
+
+  let displayAllergens = item.allergens;
+  if (item.allergyWarning && userAllergies.length > 0) {
+    const filtered = item.allergens.filter(a => {
+      const lowerA = a.toLowerCase();
+      return userAllergies.some(ua => lowerA.includes(ua) || ua.includes(lowerA));
+    });
+    if (filtered.length > 0) {
+      displayAllergens = filtered;
+    }
+  }
+
   return (
-    <div className="flex flex-col min-h-screen px-6 pt-6 pb-24">
+    <div className="flex flex-col h-full overflow-y-auto px-6 pt-6 pb-24">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onBack} aria-label="Go back to menu results" className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
           <ArrowLeft size={18} className="text-foreground" />
@@ -72,19 +88,37 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
         </div>
 
         {/* Allergens */}
-        {item.allergyWarning && item.allergens.length > 0 && (
-          <div className="bg-destructive/10 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-destructive" />
-              <h2 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Allergen Warning</h2>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {item.allergens.map((a) => (
-                <span key={a} className="px-3 py-1 rounded-full bg-destructive/15 text-destructive text-xs font-medium">{a}</span>
-              ))}
-            </div>
+        <div className={`rounded-2xl p-5 space-y-3 ${item.allergyWarning ? "bg-destructive/10" : "bg-card"}`}>
+          <div className="flex items-center gap-2">
+            {item.allergyWarning && <AlertTriangle size={16} className="text-destructive" />}
+            <h2 className={`font-display font-bold text-sm uppercase tracking-wider ${item.allergyWarning ? "text-destructive" : "text-foreground"}`}>
+              {item.allergyWarning ? "Allergen Warning" : "Allergens"}
+            </h2>
           </div>
-        )}
+          {item.allergyWarning ? (
+            displayAllergens.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {displayAllergens.map((a) => (
+                  <span key={a} className="px-3 py-1 rounded-full bg-destructive/15 text-destructive text-xs font-medium">{a}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-destructive font-medium">
+                This dish may contain ingredients you are allergic to based on your profile.
+              </p>
+            )
+          ) : (
+            displayAllergens.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {displayAllergens.map((a) => (
+                  <span key={a} className="px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">{a}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No allergens detected</p>
+            )
+          )}
+        </div>
 
         {/* Ingredients */}
         <div className="bg-card rounded-2xl p-5 space-y-3">

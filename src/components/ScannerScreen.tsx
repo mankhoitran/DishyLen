@@ -20,6 +20,18 @@ const ScannerScreen = ({ onCapture, onClose }: Props) => {
     let cancelled = false;
 
     const startCamera = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const permStatus = await Camera.requestPermissions({ permissions: ['camera'] });
+          if (permStatus.camera !== 'granted' && permStatus.camera !== 'prompt-with-rationale') {
+            setCameraError("Camera permission denied. Please enable it in app settings.");
+            return;
+          }
+        } catch (error) {
+          console.error("Camera permission request failed", error);
+        }
+      }
+
       if (!navigator.mediaDevices?.getUserMedia) {
         setCameraError("Camera preview is not available on this device.");
         return;

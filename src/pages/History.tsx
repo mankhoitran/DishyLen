@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Clock, Search, Utensils } from "lucide-react";
-import { fetchHistoryEntries, loadHistoryEntries, type HistoryEntry } from "@/lib/dishyApi";
+import { fetchHistoryEntries, loadHistoryEntries, getAuthToken, getAuthUser, type HistoryEntry } from "@/lib/dishyApi";
+import BottomNav from "@/components/BottomNav";
+import ProfileScreen from "@/components/ProfileScreen";
 
 const formatDate = (value: string) => {
   const date = new Date(value);
@@ -56,9 +59,32 @@ const getMacro = (entry: HistoryEntry, key: "calories" | "protein" | "carbs" | "
 };
 
 const History = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [entries, setEntries] = useState<HistoryEntry[]>(() => loadHistoryEntries());
+  const user = getAuthUser();
+  const userAllergies = user?.allergies ? user.allergies.toLowerCase().split(",").map(a => a.trim()).filter(Boolean) : [];
   const [isLoading, setIsLoading] = useState(true);
+
+  const [activeTab, setActiveTab] = useState("history");
+  const [targetLanguage, setTargetLanguage] = useState(() => localStorage.getItem("dishy_language") || "en");
+
+  const handleLanguageChange = (lang: string) => {
+    setTargetLanguage(lang);
+    localStorage.setItem("dishy_language", lang);
+  };
+
+  const handleNavTab = (tab: string) => {
+    if (tab === "history") {
+      setActiveTab("history");
+      return;
+    }
+    if (tab === "profile") {
+      setActiveTab("profile");
+      return;
+    }
+    navigate("/", { state: { activeTab: tab } });
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -97,12 +123,12 @@ const History = () => {
   }), [entries, search]);
 
   return (
-    <div className="app-shell bg-background">
-      <div className="flex min-h-screen flex-col px-5 pb-8 pt-10">
+    <div className="app-shell bg-background overflow-hidden">
+      <div className="flex h-full flex-col px-5 pb-24 pt-10 overflow-y-auto">
         <div className="mb-6 flex items-center gap-3">
-          <Link to="/" aria-label="Back to app" className="flex h-10 w-10 items-center justify-center rounded-full bg-card">
+          <button onClick={() => navigate("/", { state: { activeTab: "home" }})} aria-label="Back to app" className="flex h-10 w-10 items-center justify-center rounded-full bg-card shadow-sm hover:bg-card/80 transition-colors">
             <ArrowLeft size={18} className="text-foreground" />
-          </Link>
+          </button>
           <div className="flex-1">
             <h1 className="font-display text-2xl font-bold text-foreground">History</h1>
             <p className="text-xs text-muted-foreground">Searched dishes saved on this device</p>
@@ -175,11 +201,23 @@ const History = () => {
                           </div>
                         ))}
                       </div>
-                      {allergens.length > 0 && (
-                        <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                          <span className="font-semibold text-foreground">Allergens:</span> {allergens.join(", ")}
-                        </p>
-                      )}
+                      {(() => {
+                        let displayAllergens = allergens;
+                        if (userAllergies.length > 0) {
+                          const filtered = allergens.filter(a => {
+                            const lowerA = a.toLowerCase();
+                            return userAllergies.some(ua => lowerA.includes(ua) || ua.includes(lowerA));
+                          });
+                          if (filtered.length > 0) {
+                            displayAllergens = filtered;
+                          }
+                        }
+                        return displayAllergens.length > 0 && (
+                          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                            <span className="font-semibold text-foreground">Allergens:</span> {displayAllergens.join(", ")}
+                          </p>
+                        );
+                      })()}
                       {ingredients.length > 0 && (
                         <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
                           <span className="font-semibold text-foreground">Ingredients:</span> {ingredients.join(", ")}
@@ -193,6 +231,23 @@ const History = () => {
           </div>
         )}
       </div>
+      
+      <AnimatePresence>
+        {activeTab === "profile" && (
+          <motion.div
+            key="profile"
+            className="absolute inset-0 z-40 bg-background"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 280, damping: 28, mass: 0.8 }}
+          >
+            <ProfileScreen language={targetLanguage} onLanguageChange={handleLanguageChange} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <BottomNav activeTab={activeTab} onTabChange={handleNavTab} showHistory={Boolean(getAuthToken())} />
     </div>
   );
 };

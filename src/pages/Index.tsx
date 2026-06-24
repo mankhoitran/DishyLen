@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import SplashScreen from "@/components/SplashScreen";
 import ScannerScreen from "@/components/ScannerScreen";
 import AnalyzingScreen from "@/components/AnalyzingScreen";
@@ -183,9 +183,9 @@ const variants = {
     exit:    { opacity: 0, x: -60, scale: 0.97 },
   },
   profile: {
-    initial: { opacity: 0, y: 40, scale: 0.96 },
-    animate: { opacity: 1, y: 0,  scale: 1 },
-    exit:    { opacity: 0, y: 40, scale: 0.96 },
+    initial: { opacity: 0, scale: 0.98 },
+    animate: { opacity: 1, scale: 1 },
+    exit:    { opacity: 0, scale: 0.98 },
   },
 };
 
@@ -195,9 +195,15 @@ const getScreenVariant = (s: AppScreen | "profile") => variants[s];
 
 const Index = () => {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState<AppScreen>("splash");
+  const location = useLocation();
+  const initialTab = location.state?.activeTab || "home";
+  
+  const [screen, setScreen] = useState<AppScreen>(() => {
+    if (sessionStorage.getItem("splash_shown")) return initialTab === "scan" ? "scan" : "home";
+    return "splash";
+  });
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [activeTab, setActiveTab] = useState("scan");
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuImageUrl, setMenuImageUrl] = useState<string | undefined>();
   const [uploadedMenu, setUploadedMenu] = useState<UploadedMenuImage | undefined>();
@@ -219,7 +225,11 @@ const Index = () => {
     setScreen(next);
   }, [screen]);
 
-  const handleSplashDone = () => setScreenWithHistory("home");
+  const handleSplashDone = () => {
+    sessionStorage.setItem("splash_shown", "true");
+    setScreenWithHistory("home");
+  };
+  
   const handleScan = () => {
     setScreenWithHistory("scan");
     setActiveTab("scan");
@@ -265,14 +275,21 @@ const Index = () => {
     try {
       const selected = item.ocr ? await ocrMenuSelect(item.ocr, uploadedMenu) : null;
       const retrieved = selected || (item.ocr ? await queryDishVllm(item.ocr) : null);
-      let summarized = item.ocr && retrieved ? await summarizeDish(item.ocr, retrieved, authUser?.allergies) : retrieved;
+      let summarized = item.ocr && retrieved ? await summarizeDish(item.ocr, retrieved, getAuthUser()?.allergies) : retrieved;
       if (!summarized) return;
       
-      if (targetLanguage === "vi") {
+      if (targetLanguage && targetLanguage !== "en") {
+        const langMap: Record<string, string> = {
+          vi: "vietnamese",
+          es: "spanish",
+          zh: "chinese"
+        };
+        const targetLangName = langMap[targetLanguage] || targetLanguage;
+
         const [translatedSummary, translatedIngredients] = await Promise.all([
-          translateText(summarized.description, "vietnamese"),
+          translateText(summarized.description, targetLangName),
           summarized.ingredients && summarized.ingredients.length > 0
-            ? translateText(summarized.ingredients.join(" | "), "vietnamese").then(res => res.split("|").map(s => s.trim()))
+            ? translateText(summarized.ingredients.join(" | "), targetLangName).then(res => res.split("|").map(s => s.trim()))
             : Promise.resolve(summarized.ingredients)
         ]);
         summarized = { 
@@ -305,7 +322,7 @@ const Index = () => {
       setSelectedItem({
         ...item,
         ...summarized,
-        allergyWarning: item.allergyWarning || summarized.allergyWarning,
+        allergyWarning: Boolean(item.allergyWarning || summarized.allergyWarning || summarized.raw?.allergyWarning || summarized.raw?.allergy_warning),
         allergens: Array.from(new Set([...(item.allergens || []), ...(summarized.allergens || [])])),
         id: item.id,
         box: item.box,
@@ -377,7 +394,7 @@ const Index = () => {
             exit="exit"
             transition={spring}
           >
-            <ScannerScreen onCapture={handleCapture} onClose={() => setScreenWithHistory("home")} />
+            <ScannerScreen onCapture={handleCapture} onClose={() => { setScreenWithHistory("home"); setActiveTab("home"); }} />
           </motion.div>
         )}
 
@@ -428,141 +445,30 @@ const Index = () => {
         {showNav && activeTab === "profile" && (
           <motion.div
             key="profile"
-            className="absolute inset-0 z-40"
+            className="absolute inset-0 z-40 bg-background"
             variants={getScreenVariant("profile")}
             initial="initial"
             animate="animate"
             exit="exit"
             transition={spring}
           >
-            <ProfileScreen />
+            <ProfileScreen language={targetLanguage} onLanguageChange={handleLanguageChange} />
           </motion.div>
         )}
       </AnimatePresence>
 
       {showNav && (
-        <motion.div
-          initial={{ y: 100 }}
-          animate={{ y: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        >
-          <BottomNav activeTab={activeTab} onTabChange={handleNavTab} showHistory={isAuthenticated} />
-        </motion.div>
+        <BottomNav activeTab={activeTab} onTabChange={handleNavTab} showHistory={isAuthenticated} />
       )}
     </div>
   );
 };
 
 const HomeScreen = ({ onScan, user, language, onLanguageChange }: { onScan: () => void; user?: AuthUser; language: string; onLanguageChange: (lang: string) => void }) => {
-  const [showProfile, setShowProfile] = useState(false);
-
   return (
   <div className="flex flex-col min-h-screen px-6 pt-14 pb-24">
     <div className="flex items-center justify-between mb-10">
       <p className="text-2xl font-bold font-display text-foreground">DishyLen</p>
-
-      {/* Profile button + dropdown anchored to the right */}
-      <div className="relative">
-        <button
-          id="profile-btn"
-          aria-label="View profile"
-          onClick={() => setShowProfile((v) => !v)}
-          className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 active:scale-90 transition-all"
-        >
-          {user?.picture ? (
-            <img src={user.picture} alt="avatar" className="w-full h-full rounded-full object-cover" />
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-            </svg>
-          )}
-        </button>
-
-        {/* Dropdown box */}
-        <AnimatePresence>
-          {showProfile && (
-            <>
-              {/* invisible click-outside layer */}
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setShowProfile(false)}
-              />
-
-              <motion.div
-                key="profile-dropdown"
-                initial={{ opacity: 0, scale: 0.92, y: -6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: -6 }}
-                transition={{ type: "spring", stiffness: 380, damping: 28 }}
-                className="absolute top-12 right-0 z-50 w-60 rounded-2xl shadow-xl overflow-hidden"
-                style={{ background: "var(--card, #fff)", border: "1px solid var(--border, #e5e7eb)" }}
-              >
-                {/* Caret */}
-                <div
-                  className="absolute -top-2 right-3 w-4 h-4 rotate-45 rounded-sm"
-                  style={{ background: "var(--card, #fff)", border: "1px solid var(--border, #e5e7eb)", clipPath: "polygon(0 0, 100% 0, 0 100%)" }}
-                />
-
-                <div className="px-4 py-4 space-y-3">
-                  {/* Name */}
-                  {user?.name && (
-                    <p className="font-semibold text-sm text-foreground truncate">{user.name}</p>
-                  )}
-
-                  {/* ID */}
-                  {/* <div className="rounded-xl px-3 py-2.5 space-y-0.5" style={{ background: "var(--muted, #f3f4f6)" }}>
-                    <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground, #6b7280)" }}>User ID</p>
-                    {user?.id !== undefined
-                      ? <p className="text-xs font-mono font-semibold break-all text-foreground">{String(user.id)}</p>
-                      : <p className="text-xs text-muted-foreground italic">Not signed in</p>
-                    }
-                  </div> */}
-
-                  {/* Email */}
-                  {user?.email && (
-                    <div className="rounded-xl px-3 py-2.5 space-y-0.5" style={{ background: "var(--muted, #f3f4f6)" }}>
-                      <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground, #6b7280)" }}>Email</p>
-                      <p className="text-xs break-all text-foreground">{user.email}</p>
-                    </div>
-                  )}
-
-                  {/* Language Selection */}
-                  <div className="rounded-xl px-3 py-2.5 space-y-2" style={{ background: "var(--muted, #f3f4f6)" }}>
-                     <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground, #6b7280)" }}>Translation Language</p>
-                     <div className="flex gap-2">
-                        <button 
-                          onClick={() => onLanguageChange("en")} 
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${language === "en" ? "bg-primary text-primary-foreground" : "bg-card text-foreground border border-border hover:bg-muted"}`}
-                        >
-                          English
-                        </button>
-                        <button 
-                          onClick={() => onLanguageChange("vi")} 
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${language === "vi" ? "bg-primary text-primary-foreground" : "bg-card text-foreground border border-border hover:bg-muted"}`}
-                        >
-                          Vietnamese
-                        </button>
-                     </div>
-                  </div>
-
-                  {/* Logout */}
-                  <div className="pt-2">
-                    <button
-                      onClick={() => {
-                        clearAuth();
-                        window.location.replace("/login");
-                      }}
-                      className="w-full py-2.5 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                    >
-                      Log out
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </div>
     </div>
 
     <div className="flex-1 flex flex-col items-center justify-center gap-8">
