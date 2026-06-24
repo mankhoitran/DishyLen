@@ -7,7 +7,7 @@ import AnalyzingScreen from "@/components/AnalyzingScreen";
 import MenuResultsScreen from "@/components/MenuResultsScreen";
 import MenuItemDetail from "@/components/MenuItemDetail";
 import BottomNav from "@/components/BottomNav";
-import AssistantScreen from "@/components/AssistantScreen";
+import ProfileScreen from "@/components/ProfileScreen";
 import {
   ocrMenuItems,
   ocrMenuSelect,
@@ -17,6 +17,8 @@ import {
   saveHistoryEntry,
   summarizeDish,
   uploadMenuImage,
+  clearAuth,
+  translateText,
   type OcrBox,
   type OcrDish,
   type UploadedMenuImage,
@@ -41,6 +43,7 @@ export interface MenuItem {
   summary?: string;
   sources?: string[];
   isLoading?: boolean;
+  allergyWarning?: boolean;
 }
 
 const MOCK_MENU: MenuItem[] = [
@@ -179,14 +182,14 @@ const variants = {
     animate: { opacity: 1, x: 0,  scale: 1 },
     exit:    { opacity: 0, x: -60, scale: 0.97 },
   },
-  assistant: {
+  profile: {
     initial: { opacity: 0, y: 40, scale: 0.96 },
     animate: { opacity: 1, y: 0,  scale: 1 },
     exit:    { opacity: 0, y: 40, scale: 0.96 },
   },
 };
 
-const getScreenVariant = (s: AppScreen | "assistant") => variants[s];
+const getScreenVariant = (s: AppScreen | "profile") => variants[s];
 
 /* ------------------------------------------------------------------ */
 
@@ -202,6 +205,12 @@ const Index = () => {
   const [analysisError, setAnalysisError] = useState<string | undefined>();
   const [isAuthenticated] = useState(() => Boolean(getAuthToken()));
   const [authUser] = useState<AuthUser | undefined>(() => getAuthUser() ?? undefined);
+  const [targetLanguage, setTargetLanguage] = useState(() => localStorage.getItem("dishy_language") || "en");
+
+  const handleLanguageChange = (lang: string) => {
+    setTargetLanguage(lang);
+    localStorage.setItem("dishy_language", lang);
+  };
 
   /* Track previous screen for back-animations */
   const prevScreen = useRef<AppScreen>("splash");
@@ -230,12 +239,13 @@ const Index = () => {
       setMenuItems(ocrDishes.map((dish, index) => ({
         id: dish.id || String(index + 1),
         name: dish.name,
-        description: dish.text || "Tap to retrieve nutrition details.",
+        description: dish.allergyWarningText ? `WARNING: Contains ${dish.allergyWarningText}. ${dish.text || ""}` : (dish.text || "Tap to retrieve nutrition details."),
         calories: 0,
         protein: 0,
         carbs: 0,
         fats: 0,
-        allergens: [],
+        allergens: dish.allergyWarningText ? dish.allergyWarningText.split(',').map(s => s.trim()) : [],
+        allergyWarning: !!dish.allergyWarningText,
         ingredients: [],
         price: dish.price,
         box: dish.box,
@@ -255,8 +265,24 @@ const Index = () => {
     try {
       const selected = item.ocr ? await ocrMenuSelect(item.ocr, uploadedMenu) : null;
       const retrieved = selected || (item.ocr ? await queryDishVllm(item.ocr) : null);
-      const summarized = item.ocr && retrieved ? await summarizeDish(item.ocr, retrieved) : retrieved;
+      let summarized = item.ocr && retrieved ? await summarizeDish(item.ocr, retrieved, authUser?.allergies) : retrieved;
       if (!summarized) return;
+      
+      if (targetLanguage === "vi") {
+        const [translatedSummary, translatedIngredients] = await Promise.all([
+          translateText(summarized.description, "vietnamese"),
+          summarized.ingredients && summarized.ingredients.length > 0
+            ? translateText(summarized.ingredients.join(" | "), "vietnamese").then(res => res.split("|").map(s => s.trim()))
+            : Promise.resolve(summarized.ingredients)
+        ]);
+        summarized = { 
+          ...summarized, 
+          description: translatedSummary, 
+          summary: translatedSummary,
+          ingredients: translatedIngredients 
+        };
+      }
+
       saveHistoryEntry({
         type: "query",
         title: summarized.name,
@@ -279,6 +305,8 @@ const Index = () => {
       setSelectedItem({
         ...item,
         ...summarized,
+        allergyWarning: item.allergyWarning || summarized.allergyWarning,
+        allergens: Array.from(new Set([...(item.allergens || []), ...(summarized.allergens || [])])),
         id: item.id,
         box: item.box,
         ocr: item.ocr,
@@ -300,7 +328,7 @@ const Index = () => {
   const handleNavTab = (tab: string) => {
     setActiveTab(tab);
     if (tab === "scan") handleScan();
-    else if (tab === "assistant") setScreenWithHistory("home");
+    else if (tab === "profile") setScreenWithHistory("home");
     else if (tab === "home") setScreenWithHistory("home");
     else if (tab === "history") navigate("/history");
   };
@@ -335,7 +363,7 @@ const Index = () => {
             exit="exit"
             transition={spring}
           >
-            <HomeScreen onScan={handleScan} user={authUser} />
+            <HomeScreen onScan={handleScan} user={authUser} language={targetLanguage} onLanguageChange={handleLanguageChange} />
           </motion.div>
         )}
 
@@ -397,17 +425,17 @@ const Index = () => {
       </AnimatePresence>
 
       <AnimatePresence>
-        {showNav && activeTab === "assistant" && (
+        {showNav && activeTab === "profile" && (
           <motion.div
-            key="assistant"
+            key="profile"
             className="absolute inset-0 z-40"
-            variants={getScreenVariant("assistant")}
+            variants={getScreenVariant("profile")}
             initial="initial"
             animate="animate"
             exit="exit"
             transition={spring}
           >
-            <AssistantScreen />
+            <ProfileScreen />
           </motion.div>
         )}
       </AnimatePresence>
@@ -425,7 +453,7 @@ const Index = () => {
   );
 };
 
-const HomeScreen = ({ onScan, user }: { onScan: () => void; user?: AuthUser }) => {
+const HomeScreen = ({ onScan, user, language, onLanguageChange }: { onScan: () => void; user?: AuthUser; language: string; onLanguageChange: (lang: string) => void }) => {
   const [showProfile, setShowProfile] = useState(false);
 
   return (
@@ -482,13 +510,13 @@ const HomeScreen = ({ onScan, user }: { onScan: () => void; user?: AuthUser }) =
                   )}
 
                   {/* ID */}
-                  <div className="rounded-xl px-3 py-2.5 space-y-0.5" style={{ background: "var(--muted, #f3f4f6)" }}>
+                  {/* <div className="rounded-xl px-3 py-2.5 space-y-0.5" style={{ background: "var(--muted, #f3f4f6)" }}>
                     <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground, #6b7280)" }}>User ID</p>
                     {user?.id !== undefined
                       ? <p className="text-xs font-mono font-semibold break-all text-foreground">{String(user.id)}</p>
                       : <p className="text-xs text-muted-foreground italic">Not signed in</p>
                     }
-                  </div>
+                  </div> */}
 
                   {/* Email */}
                   {user?.email && (
@@ -497,6 +525,38 @@ const HomeScreen = ({ onScan, user }: { onScan: () => void; user?: AuthUser }) =
                       <p className="text-xs break-all text-foreground">{user.email}</p>
                     </div>
                   )}
+
+                  {/* Language Selection */}
+                  <div className="rounded-xl px-3 py-2.5 space-y-2" style={{ background: "var(--muted, #f3f4f6)" }}>
+                     <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground, #6b7280)" }}>Translation Language</p>
+                     <div className="flex gap-2">
+                        <button 
+                          onClick={() => onLanguageChange("en")} 
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${language === "en" ? "bg-primary text-primary-foreground" : "bg-card text-foreground border border-border hover:bg-muted"}`}
+                        >
+                          English
+                        </button>
+                        <button 
+                          onClick={() => onLanguageChange("vi")} 
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${language === "vi" ? "bg-primary text-primary-foreground" : "bg-card text-foreground border border-border hover:bg-muted"}`}
+                        >
+                          Vietnamese
+                        </button>
+                     </div>
+                  </div>
+
+                  {/* Logout */}
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        clearAuth();
+                        window.location.replace("/login");
+                      }}
+                      className="w-full py-2.5 rounded-xl text-sm font-semibold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                    >
+                      Log out
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </>

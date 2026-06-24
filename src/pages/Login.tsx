@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Chrome, Loader2, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
+import { Capacitor } from "@capacitor/core";
+import { GoogleSignIn } from "@capawesome/capacitor-google-sign-in";
 import { getAuthToken, loginWithGoogle } from "@/lib/dishyApi";
 
 declare global {
@@ -18,6 +20,9 @@ declare global {
   }
 }
 
+/** True when running inside a Capacitor native shell (Android / iOS). */
+const isNative = Capacitor.isNativePlatform();
+
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,15 +30,19 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleReady, setIsGoogleReady] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/";
+  let from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/";
+  if (from === "/login") from = "/";
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
+  /* ------------------------------------------------------------------ */
+  /*  Shared: exchange idToken with backend                              */
+  /* ------------------------------------------------------------------ */
   const completeLogin = useCallback(async (idToken: string) => {
     setIsLoading(true);
     setError(undefined);
     try {
       await loginWithGoogle(idToken);
-      navigate(from, { replace: true });
+      window.location.replace(from);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Google login failed.");
     } finally {
@@ -41,42 +50,75 @@ const Login = () => {
     }
   }, [from, navigate]);
 
+  /* ------------------------------------------------------------------ */
+  /*  Native path: @capawesome/capacitor-google-sign-in                 */
+  /* ------------------------------------------------------------------ */
+  const handleNativeGoogleLogin = async () => {
+    if (!googleClientId) {
+      setError("Missing VITE_GOOGLE_CLIENT_ID.");
+      return;
+    }
+    setIsLoading(true);
+    setError(undefined);
+    try {
+      await GoogleSignIn.initialize({ clientId: googleClientId });
+      const result = await GoogleSignIn.signIn();
+      const idToken = result.idToken;
+      if (!idToken) throw new Error("Google did not return an ID token.");
+      await completeLogin(idToken);
+    } catch (err: unknown) {
+      // User cancelled — don't show an error
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes("cancel") && !msg.toLowerCase().includes("dismiss")) {
+        setError(msg);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*  Web path: Google Identity Services (GIS) script                   */
+  /* ------------------------------------------------------------------ */
+  const initializeGoogleWeb = useCallback(() => {
+    if (!window.google?.accounts?.id) {
+      setError("Google Identity Services did not load. Check network or ad blocker.");
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId!,
+      callback: (response) => {
+        if (response.credential) void completeLogin(response.credential);
+        else setError("Google did not return an ID token.");
+      },
+    });
+
+    setIsGoogleReady(true);
+    setError(undefined);
+
+    if (googleButtonRef.current) {
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "filled_blue",
+        size: "large",
+        shape: "pill",
+        width: googleButtonRef.current.clientWidth || 320,
+      });
+    }
+  }, [completeLogin, googleClientId]);
+
   useEffect(() => {
+    // Native: skip the GIS script entirely
+    if (isNative) return;
+
     if (!googleClientId) {
       setError("Missing VITE_GOOGLE_CLIENT_ID. Add it to .env to enable Google sign in.");
       return;
     }
 
-    const initializeGoogle = () => {
-      if (!window.google?.accounts?.id) {
-        setError("Google Identity Services did not load. Check network access or ad blocker settings.");
-        return;
-      }
-
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: (response) => {
-          if (response.credential) void completeLogin(response.credential);
-          else setError("Google did not return an ID token.");
-        },
-      });
-
-      setIsGoogleReady(true);
-      setError(undefined);
-
-      if (googleButtonRef.current) {
-        googleButtonRef.current.innerHTML = "";
-        window.google.accounts.id.renderButton(googleButtonRef.current, {
-          theme: "filled_blue",
-          size: "large",
-          shape: "pill",
-          width: googleButtonRef.current.clientWidth || 320,
-        });
-      }
-    };
-
     if (window.google?.accounts?.id) {
-      initializeGoogle();
+      initializeGoogleWeb();
       return;
     }
 
@@ -85,7 +127,7 @@ const Login = () => {
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
-    script.onload = initializeGoogle;
+    script.onload = initializeGoogleWeb;
     script.onerror = () => setError("Google Identity Services failed to load.");
     if (!existingScript) document.head.appendChild(script);
 
@@ -93,9 +135,10 @@ const Login = () => {
       script.onload = null;
       script.onerror = null;
     };
-  }, [completeLogin, googleClientId]);
+  }, [initializeGoogleWeb, googleClientId]);
 
   useEffect(() => {
+    if (isNative) return;
     if (!isGoogleReady || !googleClientId || !googleButtonRef.current || !window.google?.accounts?.id) return;
     googleButtonRef.current.innerHTML = "";
     window.google.accounts.id.initialize({
@@ -113,12 +156,11 @@ const Login = () => {
     });
   }, [completeLogin, googleClientId, isGoogleReady]);
 
-  const handleGoogleLogin = () => {
+  const handleWebGoogleLogin = () => {
     if (window.google?.accounts?.id && googleClientId) {
       window.google.accounts.id.prompt();
       return;
     }
-
     setError("Google sign in is not ready yet. Try again in a moment.");
   };
 
@@ -150,10 +192,14 @@ const Login = () => {
           </div>
 
           <div className="mt-10">
-            <div ref={googleButtonRef} className="flex min-h-14 w-full items-center justify-center" />
+            {/* On web: show the GIS-rendered button container */}
+            {!isNative && <div ref={googleButtonRef} className="flex min-h-14 w-full items-center justify-center" />}
+
+            {/* Primary CTA button */}
             <button
+              id="google-signin-btn"
               type="button"
-              onClick={handleGoogleLogin}
+              onClick={isNative ? handleNativeGoogleLogin : handleWebGoogleLogin}
               disabled={isLoading || !googleClientId}
               className="mt-3 flex h-14 w-full items-center justify-center gap-3 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >

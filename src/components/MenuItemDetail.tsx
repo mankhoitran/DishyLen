@@ -72,11 +72,11 @@ const MenuItemDetail = ({ item, onBack }: Props) => {
         </div>
 
         {/* Allergens */}
-        {item.allergens.length > 0 && (
+        {item.allergyWarning && item.allergens.length > 0 && (
           <div className="bg-destructive/10 rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-2">
               <AlertTriangle size={16} className="text-destructive" />
-              <h2 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Allergens</h2>
+              <h2 className="font-display font-bold text-foreground text-sm uppercase tracking-wider">Allergen Warning</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {item.allergens.map((a) => (

@@ -17,6 +17,7 @@ export interface OcrDish {
   price?: string;
   box?: OcrBox;
   raw?: unknown;
+  allergyWarningText?: string;
 }
 
 export interface UploadedMenuImage {
@@ -38,6 +39,7 @@ export interface DishInfo {
   price?: string;
   summary?: string;
   sources?: string[];
+  allergyWarning?: boolean;
   raw?: unknown;
 }
 
@@ -47,6 +49,7 @@ export interface AuthUser {
   name?: string;
   picture?: string;
   picture_url?: string;
+  allergies?: string;
   [key: string]: unknown;
 }
 
@@ -86,15 +89,17 @@ Required JSON shape:
   "carbs": number | null,
   "fats": number | null,
   "ingredients": string[],
-  "allergens": string[]
+  "allergens": string[],
+  "allergyWarning": boolean
 }
 
 Rules:
 - calories must be kcal per serving.
 - protein, carbs, and fats must be grams per serving.
 - If a value is given as a range, use the midpoint rounded to one decimal.
-- If a value is unknown, use null.
-- Preserve likely ingredients and allergens only when supported by the text.
+- If exact values are not provided in the input, provide your best reasonable estimate based on a standard serving size for this type of dish. DO NOT use null or 0 unless the dish is literally water.
+- Preserve likely ingredients and allergens. If not provided, infer the most common ingredients for this dish.
+- Set allergyWarning to true ONLY if the dish contains any allergens that match the user's provided allergies.
 `.trim();
 
 const getStoredUser = (): AuthUser | undefined => {
@@ -170,6 +175,27 @@ export const loginWithGoogle = async (idToken: string): Promise<AuthResponse> =>
   const user = normalizeAuthUser(auth.user);
   setAuthUser(user);
   return { ...auth, user };
+};
+
+export const updateUserProfile = async (updates: Partial<AuthUser>): Promise<AuthUser> => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/auth/add_allergy`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update profile: ${response.status} ${await response.text()}`);
+  }
+
+  const raw = await response.json();
+  const updatedUser = normalizeAuthUser({ ...getStoredUser(), ...raw.user, ...updates });
+  setAuthUser(updatedUser);
+  return updatedUser;
 };
 
 export const saveHistoryEntry = (entry: Omit<HistoryEntry, "id" | "createdAt" | "userId" | "userEmail"> & Partial<HistoryEntry>) => {
@@ -316,6 +342,7 @@ const parseNutritionText = (text: string): Partial<DishInfo> => {
     ),
     ingredients: normalizeList(source.ingredients),
     allergens: normalizeList(source.allergens),
+    allergyWarning: source.allergyWarning === true || source.allergy_warning === true,
   };
 };
 
@@ -346,24 +373,43 @@ const normalizeBox = (item: any): OcrBox | undefined => {
 
 const normalizeOcrDish = (item: any, index: number): OcrDish => {
   if (typeof item === "string") {
+    let name = item.trim();
+    let allergyWarningText: string | undefined;
+
+    const match = name.match(/(.*?)\s*\[Allergy Warning:\s*(.*?)\]/i);
+    if (match) {
+      name = match[1].trim();
+      allergyWarningText = match[2].trim();
+    }
+
     return {
       id: String(index + 1),
       index,
-      name: item.trim(),
+      name: name,
       text: item.trim(),
       raw: item,
+      allergyWarningText,
     };
   }
 
-  const text = String(item?.name ?? item?.dish_name ?? item?.title ?? item?.text ?? item?.label ?? `Dish ${index + 1}`).trim();
+  let name = String(item?.name ?? item?.dish_name ?? item?.title ?? item?.text ?? item?.label ?? `Dish ${index + 1}`).trim();
+  let allergyWarningText: string | undefined;
+
+  const match = name.match(/(.*?)\s*\[Allergy Warning:\s*(.*?)\]/i);
+  if (match) {
+    name = match[1].trim();
+    allergyWarningText = match[2].trim();
+  }
+
   return {
     id: String(item?.id ?? item?.dish_id ?? index + 1),
     index,
-    name: text,
-    text,
+    name: name,
+    text: String(item?.text ?? name),
     price: item?.price ? String(item.price) : undefined,
     box: normalizeBox(item),
     raw: item,
+    allergyWarningText,
   };
 };
 
@@ -513,6 +559,7 @@ const normalizeDishInfo = (raw: any, fallbackName: string, fallbackPrice?: strin
     price: dish?.price ? String(dish.price) : fallbackPrice,
     summary: dish?.summary ? String(dish.summary) : undefined,
     sources: mergeLists(dish?.sources, raw?.sources),
+    allergyWarning: dish?.allergyWarning === true || dish?.allergy_warning === true || raw?.allergyWarning === true || raw?.allergy_warning === true,
     raw,
   };
 };
@@ -528,10 +575,25 @@ export const queryDishVllm = async (dish: OcrDish): Promise<DishInfo> => {
   return normalizeDishInfo(raw, dish.name, dish.price);
 };
 
-export const summarizeDish = async (dish: OcrDish, info: DishInfo): Promise<DishInfo> => {
+export const translateText = async (text: string, targetLanguage: string): Promise<string> => {
+  try {
+    const raw = await postJson<any>("/vllm/translate", {
+      text,
+      target_language: targetLanguage,
+    });
+    return raw?.translated_text ?? raw?.text ?? raw?.result ?? text;
+  } catch (error) {
+    console.error("Translation failed", error);
+    return text;
+  }
+};
+
+export const summarizeDish = async (dish: OcrDish, info: DishInfo, userAllergies?: string): Promise<DishInfo> => {
+  const allergyContext = userAllergies ? `\n\nUser Allergies: ${userAllergies}\nDetermine if the dish contains any of these allergies and set "allergyWarning" to true if so.` : "";
+
   const raw = await postJson<any>("/vllm/summary", {
     query: `${dish.name} nutrition facts per serving`,
-    text: `${NUTRITION_PARSE_PROMPT}\n\nDish: ${info.name}\n\nInput:\n${JSON.stringify(info.raw ?? info)}`,
+    text: `${NUTRITION_PARSE_PROMPT}${allergyContext}\n\nDish: ${info.name}\n\nInput:\n${JSON.stringify(info.raw ?? info)}`,
     max_words: 80,
     include_sources: true,
   });
@@ -554,5 +616,6 @@ export const summarizeDish = async (dish: OcrDish, info: DishInfo): Promise<Dish
     ingredients: mergeLists(raw?.ingredients, parsed.ingredients, normalized.ingredients, info.ingredients),
     allergens: mergeLists(raw?.allergens, parsed.allergens, normalized.allergens, info.allergens),
     sources: mergeLists(raw?.sources, normalized.sources, info.sources),
+    allergyWarning: raw?.allergyWarning === true || raw?.allergy_warning === true || parsed.allergyWarning === true || normalized.allergyWarning === true || info.allergyWarning === true,
   };
 };
