@@ -1,0 +1,8 @@
+# Python virtual environments, at any depth
+.venv/
+venv/
+env/
+ENV/
+.virtualenv/
+virtualenv/
+pyvenv.cfg

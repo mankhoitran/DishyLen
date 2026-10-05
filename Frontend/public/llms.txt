@@ -1,0 +1,9 @@
+# DishyLen
+
+> DishyLen is a mobile menu scanner that gives instant nutritional insights, calorie counts, and allergen alerts from any restaurant menu.
+
+DishyLen lets diners point their phone camera at a printed menu and immediately see calories, macros (protein, carbs, fats), ingredients, and allergens for each dish, plus an AI assistant for diet-specific recommendations (keto, vegan, gluten-free, diabetes-friendly).
+
+## Pages
+
+- [Home](/): Scan a menu and explore DishyLen features.
