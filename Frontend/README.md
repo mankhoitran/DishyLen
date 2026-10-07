@@ -1,102 +1,155 @@
-# Frontend
+# 🥗 DishyLen Frontend — Client Application
 
-Web and Android client for DishyLen. It is a Vite + React 18 + TypeScript app, styled with Tailwind CSS and shadcn/ui, and wrapped for Android with Capacitor.
+<div align="center">
 
-## What the user can do
+[![React](https://img.shields.io/badge/React-18.3.1-61DAFB.svg?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.4+-646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4+-38B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Capacitor](https://img.shields.io/badge/Capacitor-8.3+-119EFF.svg?style=for-the-badge&logo=capacitor&logoColor=white)](https://capacitorjs.com/)
 
-Routes in `src/App.tsx`:
+<p align="center">
+  <strong>Cross-platform modern client application for DishyLen built with React 18, TypeScript, Tailwind CSS, shadcn/ui components, and Capacitor. Serves both as a responsive web app and as a native Android & iOS mobile application.</strong>
+</p>
 
-| Route | Screen |
-| --- | --- |
-| `/login` | Email login and guest login |
-| `/register` | Account registration |
-| `/` | Main app, behind `AuthGuard` |
-| `/history` | Past scans and dish lookups, behind `AuthGuard` |
+</div>
 
-The home route is one flow with several screens (`src/pages/Index.tsx`):
+---
 
-- **splash** — opening screen
-- **home** — start a scan
-- **scan** — camera or photo library (`ScannerScreen`, Capacitor Camera on device, `getUserMedia` in the browser)
-- **analyzing** — upload and OCR in progress
-- **results** — dishes found on the menu
-- **detail** — description, calories, protein, carbs, fats, ingredients, allergens
-- **profile** — display name and an allergy list used to flag matching dishes
+## 📱 Visual Showcase
 
-Language is stored locally under `dishy_language` (default `en`) and sent with dish lookups.
+<table align="center" width="100%">
+  <tr>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/01_login_screen.png" alt="Login View" width="100%" />
+      <br /><strong>1. Authentication</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/04_home_screen.png" alt="Home View" width="100%" />
+      <br /><strong>2. Home Screen</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/05_scanner_screen.png" alt="Scanner View" width="100%" />
+      <br /><strong>3. Menu Scanner</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/06_menu_results_screen.png" alt="Results View" width="100%" />
+      <br /><strong>4. Detected Items</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/07_dish_detail_modal.png" alt="Detail View" width="100%" />
+      <br /><strong>5. Nutrition Deep-Dive</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/08_profile_screen.png" alt="Profile View" width="100%" />
+      <br /><strong>6. Allergies & Lang</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/09_history_screen.png" alt="History View" width="100%" />
+      <br /><strong>7. History Record</strong>
+    </td>
+    <td align="center" width="25%">
+      <img src="assets/screenshots/10_desktop_showcase.png" alt="Desktop View" width="100%" />
+      <br /><strong>8. Responsive UI</strong>
+    </td>
+  </tr>
+</table>
 
-## How it calls the API
+---
 
-All HTTP lives in `src/lib/dishyApi.ts`.
+## ✨ Features
 
-Base URL:
+- **Menu Camera & Scanner**: Take photos or upload menu images directly from your mobile camera or desktop file picker.
+- **AI Menu Analysis**: View bounding boxes, OCR text recognition, and auto-corrected menu dish lists.
+- **Nutritional Deep Dives**: Inspect calories, protein, carbohydrates, fats, ingredients, and allergen badges for any dish.
+- **Personalized Allergen Alert System**: Automatic allergen matching against user preferences.
+- **Multi-Language Support**: Seamless translation into Vietnamese, Spanish, Chinese, and English.
+- **User Activity History**: Offline-first local storage synced with backend cloud history.
+- **Google & Guest Authentication**: Flexible sign-in options across web and native mobile.
+
+---
+
+## 🏗️ Architecture & Component Hierarchy
 
 ```text
-VITE_API_BASE_URL   # trailing slash is stripped
+src/
+├── components/
+│   ├── AnalyzingScreen.tsx   # Progress animation during OCR analysis
+│   ├── AssistantScreen.tsx   # AI dining chatbot assistant
+│   ├── AuthGuard.tsx         # Route authentication wrapper
+│   ├── BottomNav.tsx         # Mobile bottom navigation bar
+│   ├── MenuItemDetail.tsx    # Dish modal with nutrition & allergen breakdown
+│   ├── MenuResultsScreen.tsx # Extracted dish list and photo overlay
+│   ├── ProfileScreen.tsx     # User profile, dietary preferences & allergies
+│   ├── ScannerScreen.tsx     # Camera capture & file upload interface
+│   ├── SplashScreen.tsx      # App launch splash animation
+│   └── ui/                   # shadcn/ui atomic components (Button, Dialog, etc.)
+├── hooks/                    # Custom React hooks (use-mobile, use-toast)
+├── lib/
+│   ├── dishyApi.ts           # REST API client connecting to FastAPI backend
+│   └── utils.ts              # Tailwind styling helpers (clsx + tailwind-merge)
+├── pages/                    # Top-level page routes (Index, Login, Register, History)
+├── test/                     # Unit test files and Vitest setup
+├── App.tsx                   # Main application router and QueryClient provider
+├── index.css                 # Global CSS styles and Tailwind theme variables
+└── main.tsx                  # React application DOM entry point
 ```
 
-If unset, the client uses `https://dishylens.mealsretrieval.site`. Copy `Frontend/.env.example` to `Frontend/.env` for local development:
+---
 
-```env
-VITE_API_BASE_URL=http://127.0.0.1:8000
+## 🚀 Getting Started
+
+### 1. Environment Configuration
+
+Ensure `.env` exists in `Frontend/`:
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
-The access token is kept in `localStorage` (`dishy_access_token`) and sent as `Authorization: Bearer …`. The signed-in user is cached as `dishy_user`. History is cached as `dishy_history_entries` (latest 100) and also posted to `/history`.
-
-Calls the client makes:
-
-| Client function | Method and path | Used for |
-| --- | --- | --- |
-| `loginWithEmail` | `POST /auth/login` | Email and password |
-| `registerWithEmail` | `POST /auth/register` | New account |
-| `loginAsGuest` | `POST /auth/guest` | Guest session |
-| `logoutUser` | `POST /auth/logout` | End session, then clear local storage |
-| `updateUserProfile` | `POST /auth/add_allergy` | Save the allergy list |
-| `uploadMenuImage` | multipart upload | Menu photo |
-| `ocrMenuItems` | `POST /vllm/ocr/items` | Dish names from the photo |
-| `ocrMenuSelect` | `POST /vllm/ocr/select` | Nutrition for one OCR dish |
-| `queryDishVllm` | `POST /vllm/query` | Dish lookup |
-| `queryDish` | `POST /query` | Plain text lookup |
-| `summarizeDish` | `POST /vllm/summary` | Description, macros, allergens |
-| `translateText` | `POST /vllm/translate` | UI language |
-| `saveHistoryEntry` / `fetchHistoryEntries` | `POST /history`, `GET /history` | Activity log |
-
-The API in `Backend/` currently implements `/auth/google`, `/auth/me`, `/health`, `/dishes`, `/history`, and the `/vllm/query`, `/vllm/summary`, `/vllm/ocr/*` routes. Email, guest, logout, allergy, `/query`, and `/vllm/translate` are called by this client but are not defined in the current `Backend/app.py`.
-
-## Project layout
-
-```text
-Frontend/
-├── index.html
-├── src/
-│   ├── main.tsx              # Vite entry
-│   ├── App.tsx               # Router
-│   ├── pages/                # Login, Register, Index, History, NotFound
-│   ├── components/           # Scanner, results, detail, profile, auth guard
-│   ├── components/ui/        # shadcn/ui primitives
-│   └── lib/dishyApi.ts       # API client
-├── public/
-├── android/                  # Capacitor Android project
-├── capacitor.config.ts       # appId, appName DishyLen, webDir dist
-└── package.json
-```
-
-Capacitor app id: `app.lovable.e275f5083d2543deaa0ef517ebf6af67`. A live-reload URL is applied only when `CAP_SERVER_URL` is set.
-
-## Scripts
+### 2. Installation
 
 ```bash
 npm install
-npm run dev              # Vite on port 5173
-npm run dev:mobile       # same server, host 0.0.0.0
-npm run build            # production bundle in dist/
-npm run preview
-npm run lint
-npm test                 # Vitest
-npm run android:sync     # cap sync android
-npm run android          # cap run android
+# or: bun install
 ```
 
-`android:live` and `android:sync:live` target a fixed LAN address (`10.73.79.40:5173`). Change that in `package.json` before using them on another network.
+### 3. Running Dev Server
 
-Lockfiles checked in: `package-lock.json`, `bun.lock`, and `bun.lockb`. `npm install` matches the lockfile used by the Vite setup.
+```bash
+# Start standard web dev server (http://localhost:5173)
+npm run dev
+
+# Or bind to 0.0.0.0 for LAN/mobile testing on your local network:
+npm run dev:mobile
+```
+
+---
+
+## 🛠️ Available Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start local Vite development server on port 5173 |
+| `npm run dev:mobile` | Start Vite server accessible across LAN |
+| `npm run build` | Compile and bundle production assets to `dist/` |
+| `npm run test` | Run unit tests via Vitest |
+| `npm run lint` | Run ESLint across all source files |
+| `npm run preview` | Locally preview the compiled production bundle |
+
+---
+
+## 📱 Mobile Development (Android via Capacitor)
+
+```bash
+# Sync Web Assets to Android
+npm run build
+npm run android:sync
+
+# Open in Android Studio
+npm run android
+```
+
+
