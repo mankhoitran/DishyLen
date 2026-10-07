@@ -50,10 +50,10 @@
       <img src="assets/screenshots/09_history_screen.png" alt="History View" width="100%" />
       <br /><strong>7. History Record</strong>
     </td>
-    <td align="center" width="25%">
+    <!-- <td align="center" width="25%">
       <img src="assets/screenshots/10_desktop_showcase.png" alt="Desktop View" width="100%" />
       <br /><strong>8. Responsive UI</strong>
-    </td>
+    </td> -->
   </tr>
 </table>
 
